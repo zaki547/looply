@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="丁寧な毎日"/>
+<meta name="theme-color" content="#F7F4EE"/>
+<title>丁寧な毎日</title>
+<link rel="manifest" href="manifest.json"/>
+<link rel="apple-touch-icon" href="icon-192.svg"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --iv:#F7F4EE;--gr:#8BAF7A;--gr-l:#D8EBC8;--gr-d:#5A8A48;
+  --br:#9C7E5A;--br-l:#EDE4D6;--tx:#4A3F35;--tx-s:#7A6A5A;--bd:#D8CFC0;
+  --ov1:#F5C84A;--ov2:#E8960A;--ov3:#C8640A;--ov-l:#FDF0D0;
+  --radius-md:10px;--radius-lg:14px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+html,body{height:100%;background:var(--iv);}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif;
+  color:var(--tx);
+  -webkit-font-smoothing:antialiased;
+  overscroll-behavior:none;
+}
+.app{
+  max-width:480px;
+  margin:0 auto;
+  min-height:100dvh;
+  background:var(--iv);
+  padding: calc(var(--safe-top) + 1.25rem) 1.25rem calc(var(--safe-bottom) + 5rem);
+}
+
+/* header */
+.hdr{margin-bottom:1.5rem;}
+.hdr h1{font-size:22px;font-weight:600;color:var(--tx);letter-spacing:.02em;}
+.hdr .sub{font-size:13px;color:var(--tx-s);margin-top:3px;}
+.hdr-date{font-size:12px;color:var(--tx-s);margin-top:2px;}
+
+/* stats */
+.stats-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.5rem;}
+.stat-card{background:#fff;border:.5px solid var(--bd);border-radius:var(--radius-lg);padding:14px 16px;}
+.stat-label{font-size:12px;color:var(--tx-s);margin-bottom:6px;}
+.stat-value{font-size:24px;font-weight:600;color:var(--tx);}
+.stat-bar{height:5px;background:var(--br-l);border-radius:4px;margin-top:8px;overflow:hidden;}
+.stat-bar-fill{height:100%;border-radius:4px;transition:width .5s;}
+
+/* tabs */
+.view-tabs{display:flex;gap:0;margin-bottom:1.25rem;border:.5px solid var(--bd);border-radius:14px;overflow:hidden;background:#fff;}
+.vtab{flex:1;font-size:14px;padding:9px 0;border:none;background:transparent;color:var(--tx-s);cursor:pointer;font-family:inherit;transition:background .15s,color .15s;position:relative;-webkit-tap-highlight-color:transparent;}
+.vtab:not(:last-child)::after{content:'';position:absolute;right:0;top:20%;height:60%;width:.5px;background:var(--bd);}
+.vtab.active{background:var(--tx);color:var(--iv);font-weight:600;}
+.vtab.active::after{display:none;}
+.vtab:first-child{border-radius:13px 0 0 13px;}
+.vtab:last-child{border-radius:0 13px 13px 0;}
+
+/* sections */
+.view-section{display:none;}
+.view-section.show{display:block;}
+.todo-list{display:flex;flex-direction:column;gap:10px;margin-bottom:1.5rem;}
+.empty-msg{font-size:13px;color:var(--tx-s);margin-bottom:1.5rem;padding:2rem 1rem;text-align:center;background:#fff;border-radius:var(--radius-lg);border:.5px solid var(--bd);}
+
+/* card */
+.todo-card{background:#fff;border:.5px solid var(--bd);border-radius:var(--radius-lg);padding:14px 14px;transition:background .3s,border-color .3s;}
+.todo-card.done-today{background:#F0EDE8;border-color:#C8BFB0;}
+.todo-card.lv1{background:#FFFBF0;border-color:var(--ov1);}
+.todo-card.lv2{background:var(--ov-l);border-color:var(--ov2);}
+.todo-card.lv3{background:#FDE8C0;border-color:var(--ov3);}
+
+.todo-top{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.todo-name{font-size:16px;color:var(--tx);flex:1;min-width:0;line-height:1.3;}
+.todo-card.done-today .todo-name{color:var(--tx-s);text-decoration:line-through;}
+.done-check{font-size:13px;color:var(--gr);flex-shrink:0;opacity:0;transition:opacity .2s;font-weight:600;}
+.todo-card.done-today .done-check{opacity:1;}
+.freq-badge{font-size:11px;color:var(--tx-s);background:var(--br-l);padding:3px 9px;border-radius:10px;white-space:nowrap;flex-shrink:0;}
+.menu-btn{width:32px;height:32px;border:none;background:transparent;cursor:pointer;color:var(--tx-s);display:flex;align-items:center;justify-content:center;border-radius:8px;flex-shrink:0;font-size:18px;letter-spacing:1px;-webkit-tap-highlight-color:transparent;}
+.menu-btn:active{background:var(--br-l);}
+
+/* count */
+.count-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.cnt-btns{display:flex;align-items:center;gap:8px;}
+.cnt-btn{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--bd);background:transparent;font-size:18px;cursor:pointer;color:var(--tx);display:flex;align-items:center;justify-content:center;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:background .1s;}
+.cnt-btn.plus{border-color:var(--gr);color:var(--gr);}
+.cnt-btn.minus{color:var(--tx-s);opacity:.4;font-size:16px;}
+.cnt-btn:active{background:var(--br-l);}
+.cnt-num{font-size:20px;font-weight:600;color:var(--tx);min-width:30px;text-align:center;}
+.cnt-target{font-size:13px;color:var(--tx-s);}
+.pct-pill{margin-left:auto;font-size:13px;font-weight:600;padding:4px 11px;border-radius:12px;}
+.pct-normal{color:var(--gr-d);background:var(--gr-l);}
+.pct-lv1{color:#7A5500;background:#FFF0B0;}
+.pct-lv2{color:#7A3800;background:#FFD070;}
+.pct-lv3{color:white;background:var(--ov3);}
+
+/* meter */
+.meter-wrap{position:relative;height:12px;margin-bottom:10px;}
+.meter-track{height:8px;background:var(--br-l);border-radius:4px;overflow:hidden;position:absolute;top:2px;left:0;right:0;}
+.m-layer-a{position:absolute;top:0;left:0;height:100%;border-radius:4px;}
+.m-layer-b{position:absolute;top:0;left:0;height:100%;border-radius:4px;transition:width .4s;}
+.meter-marker{position:absolute;top:-1px;width:2px;background:var(--tx-s);height:10px;border-radius:1px;left:calc(100% - 1px);}
+
+/* grass */
+.grass-wrap{padding-top:10px;border-top:.5px solid var(--bd);}
+.grass-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.grass-label{font-size:11px;color:var(--tx-s);}
+.legend{display:flex;align-items:center;gap:4px;}
+.legend-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0;}
+.grass-grid{display:flex;gap:3px;flex-wrap:wrap;}
+.gdot{border-radius:3px;flex-shrink:0;}
+
+/* add area */
+.add-area{background:#fff;border:.5px dashed var(--bd);border-radius:var(--radius-lg);padding:14px;}
+.add-row{display:flex;gap:8px;margin-bottom:10px;}
+.add-input{flex:1;border:.5px solid var(--bd);border-radius:var(--radius-md);padding:10px 12px;font-size:15px;color:var(--tx);background:var(--iv);outline:none;font-family:inherit;-webkit-appearance:none;}
+.add-input:focus{border-color:var(--gr);}
+.add-input::placeholder{color:var(--tx-s);opacity:.7;}
+.add-btn{background:var(--gr);color:white;border:none;border-radius:var(--radius-md);padding:10px 16px;font-size:15px;cursor:pointer;font-family:inherit;font-weight:600;-webkit-tap-highlight-color:transparent;}
+.add-btn:active{background:var(--gr-d);}
+.freq-grid{display:flex;gap:6px;flex-wrap:wrap;}
+.fq-btn{font-size:12px;border:.5px solid var(--bd);border-radius:12px;padding:5px 11px;cursor:pointer;color:var(--tx-s);background:transparent;font-family:inherit;-webkit-tap-highlight-color:transparent;}
+.fq-btn.sel{background:var(--br-l);border-color:var(--br);color:var(--br);}
+.n-field{display:none;align-items:center;gap:6px;margin-top:10px;font-size:13px;color:var(--tx-s);}
+.n-field.show{display:flex;}
+.ni{width:56px;border:.5px solid var(--bd);border-radius:var(--radius-md);padding:6px 8px;font-size:14px;text-align:center;font-family:inherit;color:var(--tx);background:var(--iv);outline:none;-webkit-appearance:none;}
+
+/* modal */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(74,63,53,.45);z-index:200;align-items:flex-end;justify-content:center;}
+.modal-bg.open{display:flex;}
+.modal{
+  background:#fff;
+  border-radius:20px 20px 0 0;
+  padding:1.5rem 1.5rem calc(var(--safe-bottom) + 1.5rem);
+  width:100%;
+  max-width:480px;
+  max-height:85vh;
+  overflow-y:auto;
+}
+.modal-handle{width:40px;height:4px;background:var(--bd);border-radius:2px;margin:0 auto 1.2rem;}
+.modal h3{font-size:17px;font-weight:600;color:var(--tx);margin-bottom:6px;}
+.modal p{font-size:14px;color:var(--tx-s);margin-bottom:.8rem;line-height:1.6;}
+.modal-btns{display:flex;gap:8px;margin-top:1rem;}
+.modal-btn{flex:1;padding:12px;border-radius:var(--radius-md);font-size:14px;font-family:inherit;cursor:pointer;border:.5px solid var(--bd);font-weight:600;-webkit-tap-highlight-color:transparent;}
+.modal-btn.cancel{background:transparent;color:var(--tx-s);}
+.modal-btn.confirm{background:var(--gr);color:white;border-color:var(--gr);}
+.modal-btn.warn{background:var(--br-l);color:var(--br);border-color:var(--bd);}
+.modal-btn.danger{background:#F5E0D8;color:#A03010;border-color:#E0C0B0;}
+.modal-btn:active{opacity:.8;}
+
+/* edit fields */
+.field{margin-bottom:1rem;}
+.field label{display:block;font-size:12px;color:var(--tx-s);margin-bottom:5px;font-weight:500;}
+.field input[type=text],.field input[type=number]{width:100%;border:.5px solid var(--bd);border-radius:var(--radius-md);padding:10px 12px;font-size:15px;color:var(--tx);background:var(--iv);outline:none;font-family:inherit;-webkit-appearance:none;}
+.field input:focus{border-color:var(--gr);}
+
+/* install banner */
+.install-banner{display:none;background:var(--gr-l);border:.5px solid var(--gr);border-radius:var(--radius-lg);padding:12px 14px;margin-bottom:1.25rem;font-size:13px;color:var(--gr-d);line-height:1.5;}
+.install-banner.show{display:block;}
+.install-banner strong{font-weight:600;}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="hdr">
+    <h1>🌿 丁寧な毎日</h1>
+    <div class="sub">今日の習慣を、ひとつずつ。</div>
+    <div class="hdr-date" id="hdr-date"></div>
+  </div>
+
+  <div class="install-banner" id="install-banner">
+    📲 <strong>ホーム画面に追加</strong>すると、アプリとして使えます。<br>
+    Safari の共有ボタン →「ホーム画面に追加」
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">今日の達成率</div>
+      <div class="stat-value" id="today-pct">—</div>
+      <div class="stat-bar"><div class="stat-bar-fill" id="today-bar" style="width:0%;background:var(--gr)"></div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">今週の達成率</div>
+      <div class="stat-value" id="week-pct">—</div>
+      <div class="stat-bar"><div class="stat-bar-fill" id="week-bar" style="width:0%;background:var(--gr)"></div></div>
+    </div>
+  </div>
+
+  <div class="view-tabs" id="view-tabs"></div>
+  <div id="sections-wrap"></div>
+
+  <div class="add-area">
+    <div class="add-row">
+      <input class="add-input" id="new-name" placeholder="新しい習慣を追加..."/>
+      <button class="add-btn" onclick="addTodo()">追加</button>
+    </div>
+    <div class="freq-grid" id="add-fq">
+      <button class="fq-btn sel" data-freq="every"      onclick="selAddFreq(this)">毎日</button>
+      <button class="fq-btn"     data-freq="everyday-n" onclick="selAddFreq(this)">毎日N回</button>
+      <button class="fq-btn"     data-freq="week"       onclick="selAddFreq(this)">週N回</button>
+      <button class="fq-btn"     data-freq="month"      onclick="selAddFreq(this)">月N回</button>
+    </div>
+    <div class="n-field" id="add-nf">
+      <span>回数：</span>
+      <input class="ni" id="add-nv" type="number" min="1" max="99" value="3"/>
+      <span id="add-nu">回/日</span>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modal-bg" onclick="bgClose(event)">
+  <div class="modal" id="modal-box">
+    <div class="modal-handle"></div>
+    <h3 id="m-title"></h3>
+    <p id="m-body"></p>
+    <div id="m-content"></div>
+    <div class="modal-btns" id="m-btns"></div>
+  </div>
+</div>
+
+<script>
+const SK='teinei_pwa_v1';
+let todos=[], addFreq='every', curView='day';
+
+const VIEWS=[
+  {key:'day',  label:'日', freqTypes:['every','everyday-n']},
+  {key:'week', label:'週', freqTypes:['week']},
+  {key:'month',label:'月', freqTypes:['month']},
+];
+
+function spanFor(ft){return ft==='month'?6:ft==='week'?12:28;}
+function grassLabel(ft){return ft==='month'?'過去6ヶ月':ft==='week'?'過去12週間':'過去28日間';}
+function dotSz(ft){return ft==='month'?20:ft==='week'?16:11;}
+function dotColor(v){return['#E8E2D8','#8BAF7A','#4E8A3A','#2A6020'][v]||'#E8E2D8';}
+
+function genHist(ft){
+  return Array.from({length:spanFor(ft)},()=>{const r=Math.random();return r<.15?0:r<.65?1:r<.85?2:3;});
+}
+
+const defaults=[
+  {id:1,name:'朝の白湯を飲む', freqType:'every',      freqLabel:'毎日',    target:1,n:1,weekDone:6, todayDone:1,history:genHist('every'),  lastReset:today()},
+  {id:2,name:'腕立て伏せ',     freqType:'everyday-n', freqLabel:'毎日3回', target:3,n:3,weekDone:11,todayDone:2,history:genHist('everyday-n'),lastReset:today()},
+  {id:3,name:'ジムに行く',     freqType:'week',        freqLabel:'週2回',   target:2,n:2,weekDone:3, todayDone:0,history:genHist('week'),   lastReset:thisWeek()},
+  {id:4,name:'日記を書く',     freqType:'month',       freqLabel:'月8回',   target:8,n:8,weekDone:10,todayDone:1,history:genHist('month'),  lastReset:thisMonth()},
+];
+
+function today(){const d=new Date();return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;}
+function thisWeek(){const d=new Date();const day=d.getDay();const diff=d.getDate()-day+(day===0?-6:1);return `${d.getFullYear()}-W${Math.ceil((new Date(d.getFullYear(),0,1).getDay()+d.getDate())/7)}`;}
+function thisMonth(){const d=new Date();return `${d.getFullYear()}-${d.getMonth()}`;}
+
+function checkResets(){
+  // daily tasks: reset todayDone if new day
+  const t=today(),w=thisWeek(),m=thisMonth();
+  todos.forEach(task=>{
+    if((task.freqType==='every'||task.freqType==='everyday-n')&&task.lastReset!==t){
+      // push yesterday's value to history, reset
+      if(task.history&&task.history.length){
+        task.history.push(histVal(task.todayDone,task.target));
+        task.history=task.history.slice(-spanFor(task.freqType));
+      }
+      task.todayDone=0;task.weekDone=0;task.lastReset=t;
+    }
+    if(task.freqType==='week'&&task.lastReset!==w){
+      if(task.history&&task.history.length){
+        task.history.push(histVal(task.weekDone,task.target));
+        task.history=task.history.slice(-spanFor(task.freqType));
+      }
+      task.weekDone=0;task.todayDone=0;task.lastReset=w;
+    }
+    if(task.freqType==='month'&&task.lastReset!==m){
+      if(task.history&&task.history.length){
+        task.history.push(histVal(task.weekDone,task.target));
+        task.history=task.history.slice(-spanFor(task.freqType));
+      }
+      task.weekDone=0;task.todayDone=0;task.lastReset=m;
+    }
+  });
+  save();
+}
+
+function load(){
+  try{const s=localStorage.getItem(SK);todos=s?JSON.parse(s):defaults;}
+  catch(e){todos=defaults;}
+}
+function save(){try{localStorage.setItem(SK,JSON.stringify(todos));}catch(e){}}
+
+function pct(d,t){return t?Math.round(d/t*100):0;}
+function lvClass(p){return p<=100?'':p<=150?'lv1':p<=200?'lv2':'lv3';}
+function pctPill(p){return p<=100?'pct-normal':p<=150?'pct-lv1':p<=200?'pct-lv2':'pct-lv3';}
+function histVal(d,t){const p=pct(d,t);return p<=0?0:p<=100?1:p<=200?2:3;}
+
+function meterColors(lap){
+  const c=['#8BAF7A','#F5C84A','#E8960A','#C8640A'];
+  return{a:c[Math.max(0,lap-1)],b:c[Math.min(lap,c.length-1)]};
+}
+function renderMeter(p,wrap){
+  const lap=Math.floor(p/100),rem=p%100,c=meterColors(lap);
+  const tr=wrap.querySelector('.meter-track');tr.innerHTML='';
+  if(lap>0){const a=document.createElement('div');a.className='m-layer-a';a.style.cssText=`width:100%;background:${c.a};`;tr.appendChild(a);}
+  const b=document.createElement('div');b.className='m-layer-b';b.style.cssText=`width:${rem}%;background:${c.b};`;tr.appendChild(b);
+}
+function renderDots(hist,grid,ft){
+  grid.innerHTML='';const sz=dotSz(ft);
+  (hist||[]).forEach(v=>{
+    const d=document.createElement('div');d.className='gdot';
+    d.style.cssText=`width:${sz}px;height:${sz}px;background:${dotColor(v)};`;
+    grid.appendChild(d);
+  });
+}
+
+function buildTabs(){
+  const wrap=document.getElementById('view-tabs');wrap.innerHTML='';
+  VIEWS.forEach(v=>{
+    const btn=document.createElement('button');
+    btn.className='vtab'+(v.key===curView?' active':'');
+    btn.textContent=v.label;
+    btn.onclick=()=>{curView=v.key;render();};
+    wrap.appendChild(btn);
+  });
+}
+
+function buildSections(){
+  const wrap=document.getElementById('sections-wrap');wrap.innerHTML='';
+  VIEWS.forEach(v=>{
+    const sec=document.createElement('div');
+    sec.className='view-section'+(v.key===curView?' show':'');
+    sec.id='sec-'+v.key;
+    const filtered=todos.filter(t=>v.freqTypes.includes(t.freqType));
+    if(!filtered.length){
+      const msg=document.createElement('p');msg.className='empty-msg';
+      msg.textContent='タスクがありません。下から追加してください。';
+      sec.appendChild(msg);
+    } else {
+      const list=document.createElement('div');list.className='todo-list';
+      filtered.forEach(t=>list.appendChild(makeCard(t)));
+      sec.appendChild(list);
+    }
+    wrap.appendChild(sec);
+  });
+}
+
+function makeCard(t){
+  const wp=pct(t.weekDone,t.target);
+  const lv=lvClass(wp);
+  const isDone=t.freqType==='everyday-n'?t.todayDone>=t.target:t.todayDone>=1;
+  const card=document.createElement('div');
+  card.className='todo-card '+lv+(isDone?' done-today':'');
+  card.innerHTML=`
+    <div class="todo-top">
+      <span class="todo-name">${escHtml(t.name)}</span>
+      <span class="done-check">✓</span>
+      <span class="freq-badge">${escHtml(t.freqLabel)}</span>
+      <button class="menu-btn" onclick="openMenu(${t.id})">•••</button>
+    </div>
+    <div class="count-row">
+      <div class="cnt-btns">
+        <button class="cnt-btn minus" onclick="handleMinus(${t.id})">−</button>
+        <span class="cnt-num">${t.weekDone}</span>
+        <button class="cnt-btn plus" onclick="handlePlus(${t.id})">+</button>
+      </div>
+      <span class="cnt-target">/ 目標 ${t.target}回</span>
+      <span class="pct-pill ${pctPill(wp)}">${wp}%</span>
+    </div>
+    <div class="meter-wrap">
+      <div class="meter-track"></div>
+      <div class="meter-marker"></div>
+    </div>
+    <div class="grass-wrap">
+      <div class="grass-header">
+        <span class="grass-label">${grassLabel(t.freqType)}</span>
+        <span class="legend">
+          <span class="legend-dot" style="background:#8BAF7A"></span>
+          <span class="grass-label" style="margin-left:2px">達成</span>
+          <span class="legend-dot" style="background:#2A6020;margin-left:8px"></span>
+          <span class="grass-label" style="margin-left:2px">超過</span>
+        </span>
+      </div>
+      <div class="grass-grid" id="dots-${t.id}"></div>
+    </div>
+  `;
+  renderMeter(wp,card.querySelector('.meter-wrap'));
+  setTimeout(()=>{const g=card.querySelector(`#dots-${t.id}`);if(g)renderDots(t.history,g,t.freqType);},0);
+  return card;
+}
+
+function escHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function render(){
+  // date
+  const d=new Date();
+  const days=['日','月','火','水','木','金','土'];
+  document.getElementById('hdr-date').textContent=`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）`;
+
+  const todayDoneCount=todos.filter(t=>t.freqType==='everyday-n'?t.todayDone>=t.target:t.todayDone>=1).length;
+  const todayP=todos.length?Math.round(todayDoneCount/todos.length*100):0;
+  document.getElementById('today-pct').textContent=todayP+'%';
+  document.getElementById('today-bar').style.width=Math.min(todayP,100)+'%';
+
+  let wSum=0;todos.forEach(t=>wSum+=pct(t.weekDone,t.target));
+  const wAvg=todos.length?Math.round(wSum/todos.length):0;
+  document.getElementById('week-pct').textContent=wAvg+'%';
+  document.getElementById('week-bar').style.width=Math.min(wAvg,100)+'%';
+  document.getElementById('week-bar').style.background=wAvg>100?'var(--ov2)':'var(--gr)';
+
+  buildTabs();buildSections();
+}
+
+function handlePlus(id){
+  const t=todos.find(x=>x.id===id);if(!t)return;
+  if(t.freqType==='everyday-n'&&t.todayDone<t.target){doAdj(t,1);return;}
+  if(t.todayDone>=1&&t.freqType!=='everyday-n'){
+    openConfirm('もう一度記録しますか？',`「${t.name}」は今日すでに記録済みです。追加で記録しますか？`,[
+      {label:'キャンセル',cls:'cancel',action:null},
+      {label:'もう1回記録',cls:'confirm',action:()=>doAdj(t,1)},
+    ]);return;
+  }
+  if(t.freqType==='everyday-n'&&t.todayDone>=t.target){
+    openConfirm('目標を超えて記録しますか？',`今日の目標（${t.target}回）に達しています。`,[
+      {label:'キャンセル',cls:'cancel',action:null},
+      {label:'もう1回記録',cls:'confirm',action:()=>doAdj(t,1)},
+    ]);return;
+  }
+  doAdj(t,1);
+}
+function handleMinus(id){
+  const t=todos.find(x=>x.id===id);if(!t||t.weekDone<=0)return;
+  openConfirm('記録を取り消しますか？',`「${t.name}」の記録を1回減らします。`,[
+    {label:'キャンセル',cls:'cancel',action:null},
+    {label:'1回減らす',cls:'warn',action:()=>doAdj(t,-1)},
+  ]);
+}
+function doAdj(t,delta){
+  t.weekDone=Math.max(0,t.weekDone+delta);
+  t.todayDone=Math.max(0,t.todayDone+delta);
+  if(t.history&&t.history.length)t.history[t.history.length-1]=histVal(t.weekDone,t.target);
+  save();render();
+}
+
+function openMenu(id){
+  const t=todos.find(x=>x.id===id);if(!t)return;
+  document.getElementById('m-title').textContent=t.name;
+  document.getElementById('m-body').textContent='';
+  document.getElementById('m-content').innerHTML='';
+  const bw=document.getElementById('m-btns');bw.innerHTML='';bw.style.flexDirection='column';
+  [{label:'✏️  編集する',cls:'cancel',action:()=>openEdit(id)},
+   {label:'🗑️  削除する',cls:'danger',action:()=>confirmDelete(id)},
+   {label:'閉じる',cls:'cancel',action:null}
+  ].forEach(a=>{
+    const el=document.createElement('button');el.className='modal-btn '+a.cls;el.textContent=a.label;el.style.textAlign='left';
+    el.onclick=()=>{closeModal();if(a.action)a.action();};bw.appendChild(el);
+  });
+  openModalEl();
+}
+
+function openEdit(id){
+  const t=todos.find(x=>x.id===id);if(!t)return;
+  document.getElementById('m-title').textContent='タスクを編集';
+  document.getElementById('m-body').textContent='';
+  const ct=document.getElementById('m-content');
+  ct.innerHTML=`
+    <div class="field"><label>タスク名</label><input type="text" id="e-name" value="${escHtml(t.name)}"/></div>
+    <div class="field"><label>頻度</label>
+      <div class="freq-grid" id="e-fq" style="margin-bottom:0">
+        <button class="fq-btn${t.freqType==='every'?' sel':''}"      data-freq="every"      onclick="eSelFreq(this)">毎日</button>
+        <button class="fq-btn${t.freqType==='everyday-n'?' sel':''}" data-freq="everyday-n" onclick="eSelFreq(this)">毎日N回</button>
+        <button class="fq-btn${t.freqType==='week'?' sel':''}"       data-freq="week"        onclick="eSelFreq(this)">週N回</button>
+        <button class="fq-btn${t.freqType==='month'?' sel':''}"      data-freq="month"       onclick="eSelFreq(this)">月N回</button>
+      </div>
+      <div class="n-field${['everyday-n','week','month'].includes(t.freqType)?' show':''}" id="e-nf">
+        <span>回数：</span><input class="ni" id="e-nv" type="number" min="1" max="99" value="${t.n||2}"/>
+        <span id="e-nu">${t.freqType==='everyday-n'?'回/日':t.freqType==='month'?'回/月':'回/週'}</span>
+      </div>
+    </div>`;
+  const bw=document.getElementById('m-btns');bw.innerHTML='';bw.style.flexDirection='row';
+  [{label:'キャンセル',cls:'cancel',action:null},{label:'保存',cls:'confirm',action:()=>saveEdit(id)}].forEach(b=>{
+    const el=document.createElement('button');el.className='modal-btn '+b.cls;el.textContent=b.label;
+    el.onclick=()=>{closeModal();if(b.action)b.action();};bw.appendChild(el);
+  });
+  openModalEl();
+}
+function eSelFreq(btn){
+  document.querySelectorAll('#e-fq .fq-btn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');const f=btn.dataset.freq;
+  const nf=document.getElementById('e-nf');nf.className='n-field'+(['everyday-n','week','month'].includes(f)?' show':'');
+  const nu=document.getElementById('e-nu');if(nu)nu.textContent=f==='everyday-n'?'回/日':f==='month'?'回/月':'回/週';
+}
+function saveEdit(id){
+  const t=todos.find(x=>x.id===id);if(!t)return;
+  const name=document.getElementById('e-name').value.trim();if(!name)return;
+  const fb=document.querySelector('#e-fq .fq-btn.sel');
+  const ft=fb?fb.dataset.freq:t.freqType;
+  const n=parseInt(document.getElementById('e-nv')?.value)||2;
+  t.name=name;t.freqType=ft;t.n=n;
+  if(ft==='every'){t.target=1;t.freqLabel='毎日';}
+  else if(ft==='everyday-n'){t.target=n;t.freqLabel=`毎日${n}回`;}
+  else if(ft==='week'){t.target=n;t.freqLabel=`週${n}回`;}
+  else if(ft==='month'){t.target=n;t.freqLabel=`月${n}回`;}
+  const nl=spanFor(ft);if((t.history||[]).length!==nl)t.history=new Array(nl).fill(0);
+  curView=ft==='every'||ft==='everyday-n'?'day':ft==='week'?'week':'month';
+  save();render();
+}
+function confirmDelete(id){
+  openConfirm('このタスクを削除しますか？','削除すると記録もすべて消えます。',[
+    {label:'キャンセル',cls:'cancel',action:null},
+    {label:'削除する',cls:'danger',action:()=>{todos=todos.filter(x=>x.id!==id);save();render();}},
+  ]);
+}
+function openConfirm(title,body,btns){
+  document.getElementById('m-title').textContent=title;
+  document.getElementById('m-body').textContent=body;
+  document.getElementById('m-content').innerHTML='';
+  const bw=document.getElementById('m-btns');bw.innerHTML='';bw.style.flexDirection='row';
+  btns.forEach(b=>{
+    const el=document.createElement('button');el.className='modal-btn '+b.cls;el.textContent=b.label;
+    el.onclick=()=>{closeModal();if(b.action)b.action();};bw.appendChild(el);
+  });
+  openModalEl();
+}
+function openModalEl(){document.getElementById('modal-bg').classList.add('open');}
+function bgClose(e){if(e.target===document.getElementById('modal-bg'))closeModal();}
+function closeModal(){document.getElementById('modal-bg').classList.remove('open');document.getElementById('m-btns').style.flexDirection='row';}
+
+function selAddFreq(btn){
+  document.querySelectorAll('#add-fq .fq-btn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');addFreq=btn.dataset.freq;
+  const nf=document.getElementById('add-nf');nf.className='n-field'+(['everyday-n','week','month'].includes(addFreq)?' show':'');
+  const nu=document.getElementById('add-nu');if(nu)nu.textContent=addFreq==='everyday-n'?'回/日':addFreq==='month'?'回/月':'回/週';
+}
+function addTodo(){
+  const nameEl=document.getElementById('new-name');const name=nameEl.value.trim();if(!name)return;
+  const n=parseInt(document.getElementById('add-nv').value)||2;
+  let target,label;
+  if(addFreq==='every'){target=1;label='毎日';}
+  else if(addFreq==='everyday-n'){target=n;label=`毎日${n}回`;}
+  else if(addFreq==='week'){target=n;label=`週${n}回`;}
+  else if(addFreq==='month'){target=n;label=`月${n}回`;}
+  const resetKey=addFreq==='month'?thisMonth():addFreq==='week'?thisWeek():today();
+  todos.push({id:Date.now(),name,freqType:addFreq,freqLabel:label,target,n,weekDone:0,todayDone:0,history:new Array(spanFor(addFreq)).fill(0),lastReset:resetKey});
+  nameEl.value='';nameEl.blur();
+  curView=addFreq==='every'||addFreq==='everyday-n'?'day':addFreq==='week'?'week':'month';
+  save();render();
+}
+
+document.getElementById('new-name').addEventListener('keydown',e=>{if(e.key==='Enter')addTodo();});
+
+// iOSのSafariかどうか検出してバナー表示
+function checkInstallBanner(){
+  const isIos=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isInApp=window.navigator.standalone;
+  if(isIos&&!isInApp){
+    document.getElementById('install-banner').classList.add('show');
+  }
+}
+
+// Service Worker 登録
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+
+load();
+checkResets();
+checkInstallBanner();
+render();
+
+// 日付変更を検知して自動リセット（アプリを開いたまま翌日になった場合）
+setInterval(()=>{checkResets();render();}, 60000);
+</script>
+</body>
+</html>
