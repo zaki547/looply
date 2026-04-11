@@ -1,7 +1,7 @@
 {
-  "name": "丁寧な毎日",
-  "short_name": "丁寧な毎日",
-  "description": "丁寧な生活をサポートする習慣管理アプリ",
+  "name": "Looply",
+  "short_name": "Looply",
+  "description": "習慣の継続とモチベーション管理をサポートするTODOアプリ",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#F7F4EE",
