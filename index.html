@@ -36,17 +36,16 @@ body{
 }
 
 /* header */
-.hdr{margin-bottom:1.5rem;}
+.hdr{margin-bottom:1.25rem;}
 .hdr h1{font-size:22px;font-weight:600;color:var(--tx);letter-spacing:.02em;}
-.hdr .sub{font-size:13px;color:var(--tx-s);margin-top:3px;}
 .hdr-date{font-size:12px;color:var(--tx-s);margin-top:2px;}
 
-/* stats */
-.stats-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.5rem;}
-.stat-card{background:#fff;border:.5px solid var(--bd);border-radius:var(--radius-lg);padding:14px 16px;}
-.stat-label{font-size:12px;color:var(--tx-s);margin-bottom:6px;}
-.stat-value{font-size:24px;font-weight:600;color:var(--tx);}
-.stat-bar{height:5px;background:var(--br-l);border-radius:4px;margin-top:8px;overflow:hidden;}
+/* stats — 3列 */
+.stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:1.25rem;}
+.stat-card{background:#fff;border:.5px solid var(--bd);border-radius:var(--radius-lg);padding:11px 12px;}
+.stat-label{font-size:10px;color:var(--tx-s);margin-bottom:5px;font-weight:500;letter-spacing:.04em;}
+.stat-value{font-size:20px;font-weight:600;color:var(--tx);}
+.stat-bar{height:4px;background:var(--br-l);border-radius:4px;margin-top:7px;overflow:hidden;}
 .stat-bar-fill{height:100%;border-radius:4px;transition:width .5s;}
 
 /* tabs */
@@ -126,7 +125,7 @@ body{
 .n-field.show{display:flex;}
 .ni{width:56px;border:.5px solid var(--bd);border-radius:var(--radius-md);padding:6px 8px;font-size:14px;text-align:center;font-family:inherit;color:var(--tx);background:var(--iv);outline:none;-webkit-appearance:none;}
 
-/* modal */
+/* modal — 汎用ボトムシート */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(74,63,53,.45);z-index:200;align-items:flex-end;justify-content:center;}
 .modal-bg.open{display:flex;}
 .modal{
@@ -135,7 +134,7 @@ body{
   padding:1.5rem 1.5rem calc(var(--safe-bottom) + 1.5rem);
   width:100%;
   max-width:480px;
-  max-height:85vh;
+  max-height:88vh;
   overflow-y:auto;
 }
 .modal-handle{width:40px;height:4px;background:var(--bd);border-radius:2px;margin:0 auto 1.2rem;}
@@ -159,6 +158,30 @@ body{
 .install-banner{display:none;background:var(--gr-l);border:.5px solid var(--gr);border-radius:var(--radius-lg);padding:12px 14px;margin-bottom:1.25rem;font-size:13px;color:var(--gr-d);line-height:1.5;}
 .install-banner.show{display:block;}
 .install-banner strong{font-weight:600;}
+
+/* ── サマリモーダル専用スタイル ── */
+.summary-section{margin-bottom:1.25rem;}
+.summary-section-title{font-size:11px;font-weight:600;color:var(--tx-s);letter-spacing:.06em;margin-bottom:8px;text-transform:uppercase;}
+.summary-overall{display:flex;align-items:center;gap:12px;background:var(--iv);border-radius:var(--radius-md);padding:12px 14px;margin-bottom:10px;}
+.summary-overall-pct{font-size:32px;font-weight:700;color:var(--tx);}
+.summary-overall-bar-wrap{flex:1;}
+.summary-overall-label{font-size:12px;color:var(--tx-s);margin-bottom:4px;}
+.summary-overall-bar{height:6px;background:var(--br-l);border-radius:4px;overflow:hidden;}
+.summary-overall-bar-fill{height:100%;border-radius:4px;background:var(--gr);}
+.summary-task-list{display:flex;flex-direction:column;gap:6px;}
+.summary-task-row{display:flex;align-items:center;gap:8px;font-size:13px;}
+.summary-task-icon{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;font-weight:700;}
+.icon-done{background:var(--gr-l);color:var(--gr-d);}
+.icon-miss{background:#F5E0D8;color:#A03010;}
+.icon-over{background:#FFF0B0;color:#7A5500;}
+.summary-task-name{flex:1;color:var(--tx);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.summary-task-pct{font-size:12px;color:var(--tx-s);flex-shrink:0;}
+.summary-progress-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;}
+.summary-prog-card{background:var(--iv);border-radius:var(--radius-md);padding:10px 12px;}
+.summary-prog-label{font-size:11px;color:var(--tx-s);margin-bottom:4px;}
+.summary-prog-value{font-size:18px;font-weight:600;color:var(--tx);}
+.summary-prog-bar{height:4px;background:var(--br-l);border-radius:4px;margin-top:6px;overflow:hidden;}
+.summary-prog-bar-fill{height:100%;border-radius:4px;background:var(--gr);}
 </style>
 </head>
 <body>
@@ -173,16 +196,22 @@ body{
     Safari の共有ボタン →「ホーム画面に追加」
   </div>
 
+  <!-- 3列 stats -->
   <div class="stats-row">
     <div class="stat-card">
-      <div class="stat-label">今日の達成率</div>
-      <div class="stat-value" id="today-pct">—</div>
-      <div class="stat-bar"><div class="stat-bar-fill" id="today-bar" style="width:0%;background:var(--gr)"></div></div>
+      <div class="stat-label">DAILY</div>
+      <div class="stat-value" id="daily-pct">—</div>
+      <div class="stat-bar"><div class="stat-bar-fill" id="daily-bar" style="width:0%;background:var(--gr)"></div></div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">今週の達成率</div>
-      <div class="stat-value" id="week-pct">—</div>
-      <div class="stat-bar"><div class="stat-bar-fill" id="week-bar" style="width:0%;background:var(--gr)"></div></div>
+      <div class="stat-label">WEEKLY</div>
+      <div class="stat-value" id="weekly-pct">—</div>
+      <div class="stat-bar"><div class="stat-bar-fill" id="weekly-bar" style="width:0%;background:var(--gr)"></div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">MONTHLY</div>
+      <div class="stat-value" id="monthly-pct">—</div>
+      <div class="stat-bar"><div class="stat-bar-fill" id="monthly-bar" style="width:0%;background:var(--gr)"></div></div>
     </div>
   </div>
 
@@ -208,6 +237,7 @@ body{
   </div>
 </div>
 
+<!-- 汎用モーダル -->
 <div class="modal-bg" id="modal-bg" onclick="bgClose(event)">
   <div class="modal" id="modal-box">
     <div class="modal-handle"></div>
@@ -219,76 +249,358 @@ body{
 </div>
 
 <script>
-const SK='teinei_pwa_v1';
-let todos=[], addFreq='every', curView='day';
+const SK      = 'teinei_pwa_v1';
+const SK_META = 'teinei_meta_v1'; // lastOpenedDay等を保存
+let todos = [], addFreq = 'every', curView = 'day';
 
-const VIEWS=[
+const VIEWS = [
   {key:'day',  label:'日', freqTypes:['every','everyday-n']},
   {key:'week', label:'週', freqTypes:['week']},
   {key:'month',label:'月', freqTypes:['month']},
 ];
 
+// ── 日付ユーティリティ ──────────────────────────────
+function _d(){ return new Date(); }
+
+// 月曜始まりの週キー (YYYY-Www)
+function isoWeek(date){
+  const d = date ? new Date(date) : new Date();
+  // 月曜=1 ... 日曜=7
+  const dow = d.getDay() === 0 ? 7 : d.getDay();
+  const mon = new Date(d);
+  mon.setDate(d.getDate() - (dow - 1));
+  const jan4 = new Date(mon.getFullYear(), 0, 4);
+  const startOfWeek1 = new Date(jan4);
+  startOfWeek1.setDate(jan4.getDate() - (jan4.getDay() === 0 ? 6 : jan4.getDay() - 1));
+  const weekNum = Math.round((mon - startOfWeek1) / 604800000) + 1;
+  return `${mon.getFullYear()}-W${String(weekNum).padStart(2,'0')}`;
+}
+
+function todayKey(d){ d = d||_d(); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; }
+function weekKey(d) { return isoWeek(d); }
+function monthKey(d){ d = d||_d(); return `${d.getFullYear()}-${d.getMonth()}`; }
+
+// 「前日」「先週」「先月」のキーを返す
+function prevDayKey(){
+  const d = new Date(); d.setDate(d.getDate()-1); return todayKey(d);
+}
+function prevWeekKey(){
+  const d = new Date(); d.setDate(d.getDate()-7); return weekKey(d);
+}
+function prevMonthKey(){
+  const d = new Date(); d.setMonth(d.getMonth()-1); return monthKey(d);
+}
+
+// 今日が週初（月曜）か
+function isWeekStart(){  return (_d().getDay()===1); }
+// 今日が月初か
+function isMonthStart(){ return (_d().getDate()===1); }
+
+// ── spanFor / grassLabel / dotSz / dotColor ────────
 function spanFor(ft){return ft==='month'?6:ft==='week'?12:28;}
 function grassLabel(ft){return ft==='month'?'過去6ヶ月':ft==='week'?'過去12週間':'過去28日間';}
 function dotSz(ft){return ft==='month'?20:ft==='week'?16:11;}
-function dotColor(v){return['#E8E2D8','#8BAF7A','#4E8A3A','#2A6020'][v]||'#E8E2D8';}
+function dotColor(v){return['#E8E2D8','#B8D9A8','#8BAF7A','#2A6020'][v]||'#E8E2D8';}
 
 function genHist(ft){
   return Array.from({length:spanFor(ft)},()=>{const r=Math.random();return r<.15?0:r<.65?1:r<.85?2:3;});
 }
 
 const defaults=[
-  {id:1,name:'朝の白湯を飲む', freqType:'every',      freqLabel:'毎日',    target:1,n:1,weekDone:6, todayDone:1,history:genHist('every'),  lastReset:today()},
-  {id:2,name:'腕立て伏せ',     freqType:'everyday-n', freqLabel:'毎日3回', target:3,n:3,weekDone:11,todayDone:2,history:genHist('everyday-n'),lastReset:today()},
-  {id:3,name:'ジムに行く',     freqType:'week',        freqLabel:'週2回',   target:2,n:2,weekDone:3, todayDone:0,history:genHist('week'),   lastReset:thisWeek()},
-  {id:4,name:'日記を書く',     freqType:'month',       freqLabel:'月8回',   target:8,n:8,weekDone:10,todayDone:1,history:genHist('month'),  lastReset:thisMonth()},
+  {id:1,name:'朝の白湯を飲む', freqType:'every',      freqLabel:'毎日',    target:1,n:1,weekDone:6, todayDone:1,monthDone:18,history:genHist('every'),  lastReset:todayKey(),lastWeekReset:weekKey(),lastMonthReset:monthKey()},
+  {id:2,name:'腕立て伏せ',     freqType:'everyday-n', freqLabel:'毎日3回', target:3,n:3,weekDone:11,todayDone:2,monthDone:55,history:genHist('everyday-n'),lastReset:todayKey(),lastWeekReset:weekKey(),lastMonthReset:monthKey()},
+  {id:3,name:'ジムに行く',     freqType:'week',        freqLabel:'週2回',   target:2,n:2,weekDone:3, todayDone:0,monthDone:8, history:genHist('week'),   lastReset:weekKey(), lastWeekReset:weekKey(),lastMonthReset:monthKey()},
+  {id:4,name:'日記を書く',     freqType:'month',       freqLabel:'月8回',   target:8,n:8,weekDone:10,todayDone:1,monthDone:10,history:genHist('month'),  lastReset:monthKey(),lastWeekReset:weekKey(),lastMonthReset:monthKey()},
 ];
 
-function today(){const d=new Date();return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;}
-function thisWeek(){const d=new Date();const day=d.getDay();const diff=d.getDate()-day+(day===0?-6:1);return `${d.getFullYear()}-W${Math.ceil((new Date(d.getFullYear(),0,1).getDay()+d.getDate())/7)}`;}
-function thisMonth(){const d=new Date();return `${d.getFullYear()}-${d.getMonth()}`;}
+// ── load / save ───────────────────────────────────
+function load(){
+  try{ const s=localStorage.getItem(SK); todos=s?JSON.parse(s):defaults; }
+  catch(e){ todos=defaults; }
+}
+function save(){ try{ localStorage.setItem(SK,JSON.stringify(todos)); }catch(e){} }
 
+function loadMeta(){ try{ return JSON.parse(localStorage.getItem(SK_META)||'{}'); }catch(e){ return {}; } }
+function saveMeta(m){ try{ localStorage.setItem(SK_META,JSON.stringify(m)); }catch(e){} }
+
+// ── 計算ヘルパー ──────────────────────────────────
+function pct(d,t){ return t?Math.round(d/t*100):0; }
+function lvClass(p){ return p<=100?'':p<=150?'lv1':p<=200?'lv2':'lv3'; }
+function pctPill(p){ return p<=100?'pct-normal':p<=150?'pct-lv1':p<=200?'pct-lv2':'pct-lv3'; }
+function histVal(d,t){ const p=pct(d,t); return p<80?0:p<100?1:p<120?2:3; }
+
+// Daily達成率: 今日対象のタスク(every/everyday-n)のみ
+function calcDailyPct(){
+  const daily = todos.filter(t=>t.freqType==='every'||t.freqType==='everyday-n');
+  if(!daily.length) return 0;
+  const done = daily.filter(t=>t.freqType==='everyday-n'?t.todayDone>=t.target:t.todayDone>=1).length;
+  return Math.round(done/daily.length*100);
+}
+
+// Weekly達成率: 週タブ(week)のタスクのみ — 達成個数/総個数
+function calcWeeklyPct(){
+  const wt = todos.filter(t=>t.freqType==='week');
+  if(!wt.length) return 0;
+  const done = wt.filter(t=>t.weekDone>=t.target).length;
+  return Math.round(done/wt.length*100);
+}
+
+// Monthly達成率: 月タブ(month)のタスクのみ — 達成個数/総個数
+function calcMonthlyPct(){
+  const mt = todos.filter(t=>t.freqType==='month');
+  if(!mt.length) return 0;
+  const done = mt.filter(t=>(t.monthDone||0)>=t.target).length;
+  return Math.round(done/mt.length*100);
+}
+
+// ── リセット処理（前回記録をサマリ用に保存） ─────
 function checkResets(){
-  // daily tasks: reset todayDone if new day
-  const t=today(),w=thisWeek(),m=thisMonth();
+  const tk=todayKey(), wk=weekKey(), mk=monthKey();
+  let needsSummary = false;
+  let summaryType  = null; // 'day' | 'week' | 'month'
+
+  // サマリ用スナップショットを作る（リセット前の値を保存）
+  const snap = todos.map(t=>({
+    id:t.id, name:t.name, freqType:t.freqType,
+    todayDone:t.todayDone, weekDone:t.weekDone, monthDone:t.monthDone||0,
+    target:t.target, n:t.n
+  }));
+
   todos.forEach(task=>{
-    if((task.freqType==='every'||task.freqType==='everyday-n')&&task.lastReset!==t){
-      // push yesterday's value to history, reset
+    // 日次リセット
+    if((task.freqType==='every'||task.freqType==='everyday-n') && task.lastReset!==tk){
       if(task.history&&task.history.length){
         task.history.push(histVal(task.todayDone,task.target));
         task.history=task.history.slice(-spanFor(task.freqType));
       }
-      task.todayDone=0;task.weekDone=0;task.lastReset=t;
+      task.todayDone=0;
+      task.weekDone= (task.lastWeekReset===wk) ? task.weekDone : 0;
+      task.monthDone=(task.lastMonthReset===mk) ? (task.monthDone||0) : 0;
+      task.lastReset=tk;
+      needsSummary=true; summaryType='day';
     }
-    if(task.freqType==='week'&&task.lastReset!==w){
+    // 週次リセット
+    if(task.freqType==='week' && task.lastReset!==wk){
       if(task.history&&task.history.length){
         task.history.push(histVal(task.weekDone,task.target));
         task.history=task.history.slice(-spanFor(task.freqType));
       }
-      task.weekDone=0;task.todayDone=0;task.lastReset=w;
+      task.weekDone=0; task.todayDone=0;
+      task.monthDone=(task.lastMonthReset===mk)?(task.monthDone||0):0;
+      task.lastReset=wk; task.lastWeekReset=wk;
+      needsSummary=true; if(summaryType!=='day') summaryType='week';
     }
-    if(task.freqType==='month'&&task.lastReset!==m){
+    // 月次リセット
+    if(task.freqType==='month' && task.lastReset!==mk){
       if(task.history&&task.history.length){
         task.history.push(histVal(task.weekDone,task.target));
         task.history=task.history.slice(-spanFor(task.freqType));
       }
-      task.weekDone=0;task.todayDone=0;task.lastReset=m;
+      task.weekDone=0; task.todayDone=0; task.monthDone=0;
+      task.lastReset=mk; task.lastWeekReset=wk; task.lastMonthReset=mk;
+      needsSummary=true; if(!summaryType) summaryType='month';
+    }
+    // 週またぎ（毎日系）
+    if((task.freqType==='every'||task.freqType==='everyday-n') && task.lastWeekReset!==wk){
+      task.weekDone=0; task.lastWeekReset=wk;
+    }
+    // 月またぎ（毎日系・週次）
+    if(task.lastMonthReset!==mk){
+      task.monthDone=0; task.lastMonthReset=mk;
     }
   });
+
   save();
+
+  // 初回起動チェック
+  const meta = loadMeta();
+  if(meta.lastOpenedDay !== tk){
+    // 新しい日 → サマリを表示
+    const prevSnap = meta.prevSnap || null;
+    meta.lastOpenedDay = tk;
+    meta.prevSnap = snap; // 今日の起動時の値を保存（次回サマリ用）
+    saveMeta(meta);
+    if(prevSnap && prevSnap.length){
+      showSummaryModal(prevSnap, meta, tk, wk, mk);
+    }
+  }
 }
 
-function load(){
-  try{const s=localStorage.getItem(SK);todos=s?JSON.parse(s):defaults;}
-  catch(e){todos=defaults;}
+// ── サマリモーダル ────────────────────────────────
+function showSummaryModal(prevSnap, meta, tk, wk, mk){
+  // どのサマリを見せるか判定
+  const isWeek  = isWeekStart();
+  const isMon   = isMonthStart();
+
+  // 前日のDaily系タスク
+  const dailySnap  = prevSnap.filter(t=>t.freqType==='every'||t.freqType==='everyday-n');
+  const weekSnap   = prevSnap.filter(t=>t.freqType==='week'||t.freqType==='every'||t.freqType==='everyday-n');
+  const monthSnap  = prevSnap;
+
+  // 前日全体達成率
+  const dailyTotal = dailySnap.length;
+  const dailyDone  = dailySnap.filter(t=>t.freqType==='everyday-n'?t.todayDone>=t.target:t.todayDone>=1).length;
+  const dailyPct   = dailyTotal ? Math.round(dailyDone/dailyTotal*100) : null;
+
+  // 前週全体達成率（週初のみ）
+  let weeklyPct = null;
+  if(isWeek){
+    let ws=0;
+    weekSnap.forEach(t=>{
+      if(t.freqType==='every') ws+=pct(t.weekDone,7);
+      else if(t.freqType==='everyday-n') ws+=pct(t.weekDone,t.target*7);
+      else ws+=pct(t.weekDone,t.target);
+    });
+    weeklyPct = weekSnap.length ? Math.round(ws/weekSnap.length) : null;
+  }
+
+  // 先月全体達成率（月初のみ）
+  let monthlyPct = null;
+  if(isMon){
+    const prevD = new Date(); prevD.setMonth(prevD.getMonth()-1);
+    const dim   = new Date(prevD.getFullYear(),prevD.getMonth()+1,0).getDate();
+    let ms=0;
+    monthSnap.forEach(t=>{
+      let mt;
+      if(t.freqType==='every') mt=dim;
+      else if(t.freqType==='everyday-n') mt=t.target*dim;
+      else if(t.freqType==='week') mt=Math.round(dim/7*t.target);
+      else mt=t.target;
+      ms+=pct(t.monthDone,mt);
+    });
+    monthlyPct = monthSnap.length ? Math.round(ms/monthSnap.length) : null;
+  }
+
+  // タイトル
+  let title = '前日のサマリ';
+  if(isMon && isWeek) title = '先週・先月のサマリ';
+  else if(isMon)      title = '先月のサマリ';
+  else if(isWeek)     title = '先週のサマリ';
+
+  // m-contentに描画
+  document.getElementById('m-title').textContent = title;
+  document.getElementById('m-body').textContent  = '';
+  const ct = document.getElementById('m-content');
+  ct.innerHTML = '';
+
+  // ── 前日セクション（常に表示）──
+  if(dailyTotal > 0){
+    const sec = document.createElement('div');
+    sec.className = 'summary-section';
+
+    const stitle = document.createElement('div');
+    stitle.className = 'summary-section-title';
+    stitle.textContent = '昨日の達成';
+    sec.appendChild(stitle);
+
+    if(dailyPct !== null){
+      const ov = document.createElement('div');
+      ov.className = 'summary-overall';
+      ov.innerHTML = `
+        <div class="summary-overall-pct">${dailyPct}%</div>
+        <div class="summary-overall-bar-wrap">
+          <div class="summary-overall-label">全体達成率</div>
+          <div class="summary-overall-bar">
+            <div class="summary-overall-bar-fill" style="width:${Math.min(dailyPct,100)}%"></div>
+          </div>
+        </div>`;
+      sec.appendChild(ov);
+    }
+
+    const tl = document.createElement('div');
+    tl.className = 'summary-task-list';
+    dailySnap.forEach(t=>{
+      const isDone = t.freqType==='everyday-n' ? t.todayDone>=t.target : t.todayDone>=1;
+      const p = t.freqType==='everyday-n' ? pct(t.todayDone,t.target) : (t.todayDone>=1?100:0);
+      const isOver = p > 100;
+      const row = document.createElement('div');
+      row.className = 'summary-task-row';
+      row.innerHTML = `
+        <div class="summary-task-icon ${isOver?'icon-over':isDone?'icon-done':'icon-miss'}">${isOver?'↑':isDone?'✓':'✕'}</div>
+        <span class="summary-task-name">${escHtml(t.name)}</span>
+        <span class="summary-task-pct">${t.freqType==='everyday-n'?`${t.todayDone}/${t.target}回`:(isDone?'達成':'未達成')}</span>`;
+      tl.appendChild(row);
+    });
+    sec.appendChild(tl);
+    ct.appendChild(sec);
+  }
+
+  // ── 週次セクション（週初のみ）──
+  if(isWeek && weeklyPct !== null){
+    const sec = document.createElement('div');
+    sec.className = 'summary-section';
+    const stitle = document.createElement('div');
+    stitle.className = 'summary-section-title';
+    stitle.textContent = '先週の進捗';
+    sec.appendChild(stitle);
+
+    const cards = document.createElement('div');
+    cards.className = 'summary-progress-row';
+
+    const wCard = document.createElement('div');
+    wCard.className = 'summary-prog-card';
+    wCard.innerHTML = `
+      <div class="summary-prog-label">先週の達成率</div>
+      <div class="summary-prog-value">${weeklyPct}%</div>
+      <div class="summary-prog-bar"><div class="summary-prog-bar-fill" style="width:${Math.min(weeklyPct,100)}%"></div></div>`;
+    cards.appendChild(wCard);
+
+    // 先週タスク別
+    const wTaskList = document.createElement('div');
+    wTaskList.className = 'summary-task-list';
+    weekSnap.forEach(t=>{
+      let weekTarget, weekDoneVal=t.weekDone;
+      if(t.freqType==='every') weekTarget=7;
+      else if(t.freqType==='everyday-n') weekTarget=t.target*7;
+      else weekTarget=t.target;
+      const wp = pct(weekDoneVal,weekTarget);
+      const isDone = wp>=100;
+      const row = document.createElement('div');
+      row.className = 'summary-task-row';
+      row.innerHTML = `
+        <div class="summary-task-icon ${wp>100?'icon-over':isDone?'icon-done':'icon-miss'}">${wp>100?'↑':isDone?'✓':'✕'}</div>
+        <span class="summary-task-name">${escHtml(t.name)}</span>
+        <span class="summary-task-pct">${wp}%</span>`;
+      wTaskList.appendChild(row);
+    });
+
+    sec.appendChild(cards);
+    sec.appendChild(wTaskList);
+    ct.appendChild(sec);
+  }
+
+  // ── 月次セクション（月初のみ）──
+  if(isMon && monthlyPct !== null){
+    const sec = document.createElement('div');
+    sec.className = 'summary-section';
+    const stitle = document.createElement('div');
+    stitle.className = 'summary-section-title';
+    stitle.textContent = '先月の進捗';
+    sec.appendChild(stitle);
+
+    const mCard = document.createElement('div');
+    mCard.className = 'summary-prog-card';
+    mCard.innerHTML = `
+      <div class="summary-prog-label">先月の達成率</div>
+      <div class="summary-prog-value">${monthlyPct}%</div>
+      <div class="summary-prog-bar"><div class="summary-prog-bar-fill" style="width:${Math.min(monthlyPct,100)}%"></div></div>`;
+    sec.appendChild(mCard);
+    ct.appendChild(sec);
+  }
+
+  // 閉じるボタン
+  const bw = document.getElementById('m-btns');
+  bw.innerHTML=''; bw.style.flexDirection='row';
+  const closeBtn = document.createElement('button');
+  closeBtn.className='modal-btn confirm';
+  closeBtn.textContent='今日もがんばろう！';
+  closeBtn.onclick = closeModal;
+  bw.appendChild(closeBtn);
+
+  openModalEl();
 }
-function save(){try{localStorage.setItem(SK,JSON.stringify(todos));}catch(e){}}
 
-function pct(d,t){return t?Math.round(d/t*100):0;}
-function lvClass(p){return p<=100?'':p<=150?'lv1':p<=200?'lv2':'lv3';}
-function pctPill(p){return p<=100?'pct-normal':p<=150?'pct-lv1':p<=200?'pct-lv2':'pct-lv3';}
-function histVal(d,t){const p=pct(d,t);return p<=0?0:p<=100?1:p<=200?2:3;}
-
+// ── メーター ─────────────────────────────────────
 function meterColors(lap){
   const c=['#8BAF7A','#F5C84A','#E8960A','#C8640A'];
   return{a:c[Math.max(0,lap-1)],b:c[Math.min(lap,c.length-1)]};
@@ -308,6 +620,7 @@ function renderDots(hist,grid,ft){
   });
 }
 
+// ── タブ / セクション ──────────────────────────────
 function buildTabs(){
   const wrap=document.getElementById('view-tabs');wrap.innerHTML='';
   VIEWS.forEach(v=>{
@@ -387,59 +700,69 @@ function escHtml(s){
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ── render ────────────────────────────────────────
 function render(){
-  // date
-  const d=new Date();
+  const d=_d();
   const days=['日','月','火','水','木','金','土'];
   document.getElementById('hdr-date').textContent=`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）`;
 
-  const todayDoneCount=todos.filter(t=>t.freqType==='everyday-n'?t.todayDone>=t.target:t.todayDone>=1).length;
-  const todayP=todos.length?Math.round(todayDoneCount/todos.length*100):0;
-  document.getElementById('today-pct').textContent=todayP+'%';
-  document.getElementById('today-bar').style.width=Math.min(todayP,100)+'%';
+  // Daily
+  const dp = calcDailyPct();
+  document.getElementById('daily-pct').textContent = dp+'%';
+  document.getElementById('daily-bar').style.width = Math.min(dp,100)+'%';
+  document.getElementById('daily-bar').style.background = dp>100?'var(--ov2)':'var(--gr)';
 
-  let wSum=0;todos.forEach(t=>wSum+=pct(t.weekDone,t.target));
-  const wAvg=todos.length?Math.round(wSum/todos.length):0;
-  document.getElementById('week-pct').textContent=wAvg+'%';
-  document.getElementById('week-bar').style.width=Math.min(wAvg,100)+'%';
-  document.getElementById('week-bar').style.background=wAvg>100?'var(--ov2)':'var(--gr)';
+  // Weekly
+  const wp = calcWeeklyPct();
+  document.getElementById('weekly-pct').textContent = wp+'%';
+  document.getElementById('weekly-bar').style.width = Math.min(wp,100)+'%';
+  document.getElementById('weekly-bar').style.background = wp>100?'var(--ov2)':'var(--gr)';
 
-  buildTabs();buildSections();
+  // Monthly
+  const mp = calcMonthlyPct();
+  document.getElementById('monthly-pct').textContent = mp+'%';
+  document.getElementById('monthly-bar').style.width = Math.min(mp,100)+'%';
+  document.getElementById('monthly-bar').style.background = mp>100?'var(--ov2)':'var(--gr)';
+
+  buildTabs(); buildSections();
 }
 
+// ── + / − ────────────────────────────────────────
 function handlePlus(id){
-  const t=todos.find(x=>x.id===id);if(!t)return;
-  if(t.freqType==='everyday-n'&&t.todayDone<t.target){doAdj(t,1);return;}
+  const t=todos.find(x=>x.id===id); if(!t)return;
+  if(t.freqType==='everyday-n'&&t.todayDone<t.target){ doAdj(t,1); return; }
   if(t.todayDone>=1&&t.freqType!=='everyday-n'){
     openConfirm('もう一度記録しますか？',`「${t.name}」は今日すでに記録済みです。追加で記録しますか？`,[
       {label:'キャンセル',cls:'cancel',action:null},
       {label:'もう1回記録',cls:'confirm',action:()=>doAdj(t,1)},
-    ]);return;
+    ]); return;
   }
   if(t.freqType==='everyday-n'&&t.todayDone>=t.target){
     openConfirm('目標を超えて記録しますか？',`今日の目標（${t.target}回）に達しています。`,[
       {label:'キャンセル',cls:'cancel',action:null},
       {label:'もう1回記録',cls:'confirm',action:()=>doAdj(t,1)},
-    ]);return;
+    ]); return;
   }
   doAdj(t,1);
 }
 function handleMinus(id){
-  const t=todos.find(x=>x.id===id);if(!t||t.weekDone<=0)return;
+  const t=todos.find(x=>x.id===id); if(!t||t.weekDone<=0)return;
   openConfirm('記録を取り消しますか？',`「${t.name}」の記録を1回減らします。`,[
     {label:'キャンセル',cls:'cancel',action:null},
     {label:'1回減らす',cls:'warn',action:()=>doAdj(t,-1)},
   ]);
 }
 function doAdj(t,delta){
-  t.weekDone=Math.max(0,t.weekDone+delta);
-  t.todayDone=Math.max(0,t.todayDone+delta);
-  if(t.history&&t.history.length)t.history[t.history.length-1]=histVal(t.weekDone,t.target);
-  save();render();
+  t.weekDone  = Math.max(0,t.weekDone+delta);
+  t.todayDone = Math.max(0,t.todayDone+delta);
+  t.monthDone = Math.max(0,(t.monthDone||0)+delta);
+  if(t.history&&t.history.length) t.history[t.history.length-1]=histVal(t.weekDone,t.target);
+  save(); render();
 }
 
+// ── メニュー / 編集 ───────────────────────────────
 function openMenu(id){
-  const t=todos.find(x=>x.id===id);if(!t)return;
+  const t=todos.find(x=>x.id===id); if(!t)return;
   document.getElementById('m-title').textContent=t.name;
   document.getElementById('m-body').textContent='';
   document.getElementById('m-content').innerHTML='';
@@ -455,7 +778,7 @@ function openMenu(id){
 }
 
 function openEdit(id){
-  const t=todos.find(x=>x.id===id);if(!t)return;
+  const t=todos.find(x=>x.id===id); if(!t)return;
   document.getElementById('m-title').textContent='タスクを編集';
   document.getElementById('m-body').textContent='';
   const ct=document.getElementById('m-content');
@@ -482,24 +805,24 @@ function openEdit(id){
 }
 function eSelFreq(btn){
   document.querySelectorAll('#e-fq .fq-btn').forEach(b=>b.classList.remove('sel'));
-  btn.classList.add('sel');const f=btn.dataset.freq;
-  const nf=document.getElementById('e-nf');nf.className='n-field'+(['everyday-n','week','month'].includes(f)?' show':'');
-  const nu=document.getElementById('e-nu');if(nu)nu.textContent=f==='everyday-n'?'回/日':f==='month'?'回/月':'回/週';
+  btn.classList.add('sel'); const f=btn.dataset.freq;
+  const nf=document.getElementById('e-nf'); nf.className='n-field'+(['everyday-n','week','month'].includes(f)?' show':'');
+  const nu=document.getElementById('e-nu'); if(nu)nu.textContent=f==='everyday-n'?'回/日':f==='month'?'回/月':'回/週';
 }
 function saveEdit(id){
-  const t=todos.find(x=>x.id===id);if(!t)return;
-  const name=document.getElementById('e-name').value.trim();if(!name)return;
+  const t=todos.find(x=>x.id===id); if(!t)return;
+  const name=document.getElementById('e-name').value.trim(); if(!name)return;
   const fb=document.querySelector('#e-fq .fq-btn.sel');
   const ft=fb?fb.dataset.freq:t.freqType;
   const n=parseInt(document.getElementById('e-nv')?.value)||2;
-  t.name=name;t.freqType=ft;t.n=n;
+  t.name=name; t.freqType=ft; t.n=n;
   if(ft==='every'){t.target=1;t.freqLabel='毎日';}
   else if(ft==='everyday-n'){t.target=n;t.freqLabel=`毎日${n}回`;}
   else if(ft==='week'){t.target=n;t.freqLabel=`週${n}回`;}
   else if(ft==='month'){t.target=n;t.freqLabel=`月${n}回`;}
-  const nl=spanFor(ft);if((t.history||[]).length!==nl)t.history=new Array(nl).fill(0);
+  const nl=spanFor(ft); if((t.history||[]).length!==nl)t.history=new Array(nl).fill(0);
   curView=ft==='every'||ft==='everyday-n'?'day':ft==='week'?'week':'month';
-  save();render();
+  save(); render();
 }
 function confirmDelete(id){
   openConfirm('このタスクを削除しますか？','削除すると記録もすべて消えます。',[
@@ -518,56 +841,59 @@ function openConfirm(title,body,btns){
   });
   openModalEl();
 }
-function openModalEl(){document.getElementById('modal-bg').classList.add('open');}
-function bgClose(e){if(e.target===document.getElementById('modal-bg'))closeModal();}
-function closeModal(){document.getElementById('modal-bg').classList.remove('open');document.getElementById('m-btns').style.flexDirection='row';}
+function openModalEl(){ document.getElementById('modal-bg').classList.add('open'); }
+function bgClose(e){ if(e.target===document.getElementById('modal-bg'))closeModal(); }
+function closeModal(){ document.getElementById('modal-bg').classList.remove('open'); document.getElementById('m-btns').style.flexDirection='row'; }
 
+// ── タスク追加 ────────────────────────────────────
 function selAddFreq(btn){
   document.querySelectorAll('#add-fq .fq-btn').forEach(b=>b.classList.remove('sel'));
-  btn.classList.add('sel');addFreq=btn.dataset.freq;
-  const nf=document.getElementById('add-nf');nf.className='n-field'+(['everyday-n','week','month'].includes(addFreq)?' show':'');
-  const nu=document.getElementById('add-nu');if(nu)nu.textContent=addFreq==='everyday-n'?'回/日':addFreq==='month'?'回/月':'回/週';
+  btn.classList.add('sel'); addFreq=btn.dataset.freq;
+  const nf=document.getElementById('add-nf'); nf.className='n-field'+(['everyday-n','week','month'].includes(addFreq)?' show':'');
+  const nu=document.getElementById('add-nu'); if(nu)nu.textContent=addFreq==='everyday-n'?'回/日':addFreq==='month'?'回/月':'回/週';
 }
 function addTodo(){
-  const nameEl=document.getElementById('new-name');const name=nameEl.value.trim();if(!name)return;
+  const nameEl=document.getElementById('new-name'); const name=nameEl.value.trim(); if(!name)return;
   const n=parseInt(document.getElementById('add-nv').value)||2;
   let target,label;
   if(addFreq==='every'){target=1;label='毎日';}
   else if(addFreq==='everyday-n'){target=n;label=`毎日${n}回`;}
   else if(addFreq==='week'){target=n;label=`週${n}回`;}
   else if(addFreq==='month'){target=n;label=`月${n}回`;}
-  const resetKey=addFreq==='month'?thisMonth():addFreq==='week'?thisWeek():today();
-  todos.push({id:Date.now(),name,freqType:addFreq,freqLabel:label,target,n,weekDone:0,todayDone:0,history:new Array(spanFor(addFreq)).fill(0),lastReset:resetKey});
-  nameEl.value='';nameEl.blur();
+  const tk=todayKey(), wk=weekKey(), mk=monthKey();
+  todos.push({id:Date.now(),name,freqType:addFreq,freqLabel:label,target,n,
+    weekDone:0,todayDone:0,monthDone:0,
+    history:new Array(spanFor(addFreq)).fill(0),
+    lastReset:addFreq==='month'?mk:addFreq==='week'?wk:tk,
+    lastWeekReset:wk, lastMonthReset:mk
+  });
+  nameEl.value=''; nameEl.blur();
   curView=addFreq==='every'||addFreq==='everyday-n'?'day':addFreq==='week'?'week':'month';
-  save();render();
+  save(); render();
 }
 
-document.getElementById('new-name').addEventListener('keydown',e=>{if(e.key==='Enter')addTodo();});
+document.getElementById('new-name').addEventListener('keydown',e=>{ if(e.key==='Enter')addTodo(); });
 
-// iOSのSafariかどうか検出してバナー表示
+// iOS Safari バナー
 function checkInstallBanner(){
   const isIos=/iphone|ipad|ipod/i.test(navigator.userAgent);
   const isInApp=window.navigator.standalone;
-  if(isIos&&!isInApp){
-    document.getElementById('install-banner').classList.add('show');
-  }
+  if(isIos&&!isInApp){ document.getElementById('install-banner').classList.add('show'); }
 }
 
-// Service Worker 登録
+// Service Worker
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
-  });
+  window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
 }
 
+// 起動
 load();
 checkResets();
 checkInstallBanner();
 render();
 
-// 日付変更を検知して自動リセット（アプリを開いたまま翌日になった場合）
-setInterval(()=>{checkResets();render();}, 60000);
+// 日付変更を分単位で監視
+setInterval(()=>{ checkResets(); render(); }, 60000);
 </script>
 </body>
 </html>
