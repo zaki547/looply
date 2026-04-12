@@ -1,4 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <rect width="512" height="512" rx="112" fill="#F7F4EE"/>
-  <text x="256" y="335" font-size="256" text-anchor="middle" font-family="serif">🌿</text>
+  <g transform="translate(256,256)">
+    <circle cx="0" cy="0" r="138" fill="none" stroke="#8BAF7A" stroke-width="24" stroke-dasharray="750 102" stroke-linecap="round"/>
+    <circle cx="0" cy="0" r="138" fill="none" stroke="#D8EBC8" stroke-width="24" stroke-dasharray="74 778" stroke-linecap="round" stroke-dashoffset="-750"/>
+    <path d="M-58,10 L-16,58 L70,-48" fill="none" stroke="#4A3F35" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
 </svg>
