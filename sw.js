@@ -1,4 +1,4 @@
-const CACHE = 'teinei-v1';
+const CACHE = 'looply-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -25,6 +25,13 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request))
+    caches.open(CACHE).then(cache =>
+      fetch(e.request)
+        .then(res => {
+          cache.put(e.request, res.clone());
+          return res;
+        })
+        .catch(() => caches.match(e.request))
+    )
   );
 });
