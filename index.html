@@ -150,7 +150,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku
 .summary-task-icon{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;font-weight:700;}
 .icon-done{background:var(--gr-l);color:var(--gr-d);}
 .icon-miss{background:#F5E0D8;color:#A03010;}
-.icon-over{background:#FFF0B0;color:#7A5500;}
+.icon-over{background:#2A6020;color:#fff;}
 .summary-task-name{flex:1;color:var(--tx);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .summary-task-pct{font-size:12px;color:var(--tx-s);flex-shrink:0;}
 .summary-progress-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;}
@@ -257,34 +257,10 @@ function monthKey(d){ d=d||_d(); return `${d.getFullYear()}-${d.getMonth()}`; }
 function isWeekStart(){ return _d().getDay()===1; }
 function isMonthStart(){ return _d().getDate()===1; }
 
-// ── 午前5時リセット判定 ──
-// 「今日」を「午前5時基準の日付」で管理する
-function resetDayKey(d){
-  d = d || new Date();
-  // 5時より前なら「前日扱い」
-  if(d.getHours() < 5){
-    const prev = new Date(d);
-    prev.setDate(d.getDate()-1);
-    return todayKey(prev);
-  }
-  return todayKey(d);
-}
-function resetWeekKey(d){
-  d = d || new Date();
-  if(d.getHours() < 5){
-    const prev = new Date(d); prev.setDate(d.getDate()-1);
-    return weekKey(prev);
-  }
-  return weekKey(d);
-}
-function resetMonthKey(d){
-  d = d || new Date();
-  if(d.getHours() < 5){
-    const prev = new Date(d); prev.setDate(d.getDate()-1);
-    return monthKey(prev);
-  }
-  return monthKey(d);
-}
+// ── 午前0時リセット判定（暦日そのまま） ──
+function resetDayKey(d){ return todayKey(d||new Date()); }
+function resetWeekKey(d){ return weekKey(d||new Date()); }
+function resetMonthKey(d){ return monthKey(d||new Date()); }
 
 // ── load / save ──
 function load(){
@@ -330,7 +306,7 @@ function calcMonthlyPct(){
   return Math.round(mt.filter(t=>(t.monthDone||0)>=t.target).length/mt.length*100);
 }
 
-// ── リセット（午前5時基準） ──
+// ── リセット（午前0時基準） ──
 function checkResets(){
   const tk=resetDayKey(), wk=resetWeekKey(), mk=resetMonthKey();
 
@@ -459,7 +435,7 @@ function showSummaryModal(prevSnap,tk,wk,mk){
       const isDone=t.freqType==='everyday-n'?t.todayDone>=t.target:t.todayDone>=1;
       const p=t.freqType==='everyday-n'?pct(t.todayDone,t.target):(t.todayDone>=1?100:0);
       const row=document.createElement('div'); row.className='summary-task-row';
-      row.innerHTML=`<div class="summary-task-icon ${p>100?'icon-over':isDone?'icon-done':'icon-miss'}">${p>100?'↑':isDone?'✓':'✕'}</div><span class="summary-task-name">${escHtml(t.name)}</span><span class="summary-task-pct">${t.freqType==='everyday-n'?`${t.todayDone}/${t.target}回`:(isDone?'達成':'未達成')}</span>`;
+      row.innerHTML=`<div class="summary-task-icon ${p>=120?'icon-over':isDone?'icon-done':'icon-miss'}">✓</div><span class="summary-task-name">${escHtml(t.name)}</span><span class="summary-task-pct">${t.freqType==='everyday-n'?`${t.todayDone}/${t.target}回`:(isDone?'達成':'未達成')}</span>`;if(!isDone){row.querySelector('.summary-task-icon').textContent='✕';}
       tl.appendChild(row);
     });
     sec.appendChild(tl); ct.appendChild(sec);
@@ -478,7 +454,7 @@ function showSummaryModal(prevSnap,tk,wk,mk){
       const wt=t.freqType==='every'?7:t.freqType==='everyday-n'?t.target*7:t.target;
       const wp2=pct(t.weekDone,wt);
       const row=document.createElement('div'); row.className='summary-task-row';
-      row.innerHTML=`<div class="summary-task-icon ${wp2>100?'icon-over':wp2>=100?'icon-done':'icon-miss'}">${wp2>100?'↑':wp2>=100?'✓':'✕'}</div><span class="summary-task-name">${escHtml(t.name)}</span><span class="summary-task-pct">${wp2}%</span>`;
+      row.innerHTML=`<div class="summary-task-icon ${wp2>=120?'icon-over':wp2>=100?'icon-done':'icon-miss'}">✓</div><span class="summary-task-name">${escHtml(t.name)}</span><span class="summary-task-pct">${wp2}%</span>`;if(wp2<100){row.querySelector('.summary-task-icon').textContent='✕';}
       wl.appendChild(row);
     });
     sec.appendChild(wl); ct.appendChild(sec);
