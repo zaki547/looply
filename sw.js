@@ -1,4 +1,4 @@
-const CACHE = 'looply-v3';
+const CACHE = 'looply-v4';
 const ASSETS = [
   './',
   './index.html',
