@@ -272,7 +272,7 @@ function loadMeta(){ try{ return JSON.parse(localStorage.getItem(SK_META)||'{}')
 function saveMeta(m){ try{ localStorage.setItem(SK_META,JSON.stringify(m)); }catch(e){} }
 
 function genDefaults(){
-  const tk=resetDayKey(),wk=resetWeekKey(),mk=resetMonthKey();
+  const tk=todayKey(),wk=weekKey(),mk=monthKey();
   return [
     {id:1,name:'朝の白湯を飲む', freqType:'every',      freqLabel:'毎日',    target:1,n:1,weekDone:6, todayDone:1,monthDone:18,history:genHist('every'),  lastReset:tk,lastWeekReset:wk,lastMonthReset:mk},
     {id:2,name:'腕立て伏せ',     freqType:'everyday-n', freqLabel:'毎日3回', target:3,n:3,weekDone:11,todayDone:2,monthDone:55,history:genHist('everyday-n'),lastReset:tk,lastWeekReset:wk,lastMonthReset:mk},
@@ -307,64 +307,72 @@ function calcMonthlyPct(){
 }
 
 // ── リセット（午前0時基準） ──
+// キーは todayKey / weekKey / monthKey（暦日そのまま）を使用
 function checkResets(){
-  const tk=resetDayKey(), wk=resetWeekKey(), mk=resetMonthKey();
+  const tk=todayKey(), wk=weekKey(), mk=monthKey();
 
+  // リセット前のスナップショット（サマリ用）
   const snap=todos.map(t=>({
     id:t.id,name:t.name,freqType:t.freqType,
     todayDone:t.todayDone,weekDone:t.weekDone,monthDone:t.monthDone||0,
     target:t.target,n:t.n
   }));
 
+  let anyReset=false;
+
   todos.forEach(task=>{
-    // 日次リセット（every / everyday-n）
-    if((task.freqType==='every'||task.freqType==='everyday-n') && task.lastReset!==tk){
-      if(task.history&&task.history.length){
-        task.history.push(histVal(task.todayDone,task.target));
-        task.history=task.history.slice(-spanFor(task.freqType));
-      }
-      task.todayDone=0;
-      task.weekDone =(task.lastWeekReset===wk)?task.weekDone:0;
-      task.monthDone=(task.lastMonthReset===mk)?(task.monthDone||0):0;
-      task.lastReset=tk;
-    }
-    // 週次リセット（week）
-    if(task.freqType==='week' && task.lastReset!==wk){
-      if(task.history&&task.history.length){
-        task.history.push(histVal(task.weekDone,task.target));
-        task.history=task.history.slice(-spanFor(task.freqType));
-      }
-      task.weekDone=0; task.todayDone=0;
-      task.monthDone=(task.lastMonthReset===mk)?(task.monthDone||0):0;
-      task.lastReset=wk; task.lastWeekReset=wk;
-    }
-    // 月次リセット（month）
-    if(task.freqType==='month' && task.lastReset!==mk){
-      if(task.history&&task.history.length){
-        task.history.push(histVal(task.weekDone,task.target));
-        task.history=task.history.slice(-spanFor(task.freqType));
-      }
-      task.weekDone=0; task.todayDone=0; task.monthDone=0;
-      task.lastReset=mk; task.lastWeekReset=wk; task.lastMonthReset=mk;
-    }
-    // 週またぎ（毎日系）
-    if((task.freqType==='every'||task.freqType==='everyday-n') && task.lastWeekReset!==wk){
-      task.weekDone=0; task.lastWeekReset=wk;
-    }
-    // 月またぎ
-    if(task.lastMonthReset!==mk){
-      task.monthDone=0; task.lastMonthReset=mk;
-    }
-    // historyの長さを最新spanForに合わせる
+    // historyの長さを正規化（常に）
     const span=spanFor(task.freqType);
     if(!task.history||task.history.length===0) task.history=new Array(span).fill(0);
     if(task.history.length<span) task.history=[...new Array(span-task.history.length).fill(0),...task.history];
     task.history=task.history.slice(-span);
+
+    // lastResetが未設定の場合は現在のキーで初期化（初回起動対応）
+    if(!task.lastReset){
+      task.lastReset = (task.freqType==='month')?mk:(task.freqType==='week')?wk:tk;
+      task.lastWeekReset=wk; task.lastMonthReset=mk;
+    }
+
+    // ── 日次リセット（every / everyday-n） ──
+    if((task.freqType==='every'||task.freqType==='everyday-n') && task.lastReset!==tk){
+      // 前日の記録をhistoryに追加
+      task.history.push(histVal(task.todayDone,task.target));
+      task.history=task.history.slice(-span);
+      // カウントを0にリセット
+      task.todayDone=0;
+      // weekDone: 同じ週ならキープ、週をまたいでいれば0
+      if(task.lastWeekReset!==wk) task.weekDone=0;
+      // monthDone: 同じ月ならキープ、月をまたいでいれば0
+      if(task.lastMonthReset!==mk) task.monthDone=0;
+      task.lastReset=tk; task.lastWeekReset=wk; task.lastMonthReset=mk;
+      anyReset=true;
+    }
+
+    // ── 週次リセット（week） ──
+    if(task.freqType==='week' && task.lastReset!==wk){
+      task.history.push(histVal(task.weekDone,task.target));
+      task.history=task.history.slice(-span);
+      // カウントを0にリセット
+      task.weekDone=0; task.todayDone=0;
+      if(task.lastMonthReset!==mk) task.monthDone=0;
+      task.lastReset=wk; task.lastWeekReset=wk; task.lastMonthReset=mk;
+      anyReset=true;
+    }
+
+    // ── 月次リセット（month） ──
+    if(task.freqType==='month' && task.lastReset!==mk){
+      task.history.push(histVal(task.weekDone,task.target));
+      task.history=task.history.slice(-span);
+      // カウントを0にリセット
+      task.weekDone=0; task.todayDone=0; task.monthDone=0;
+      task.lastReset=mk; task.lastWeekReset=wk; task.lastMonthReset=mk;
+      anyReset=true;
+    }
   });
 
-  save();
+  if(anyReset) save();
 
-  // 初回起動チェック（サマリ表示）
+  // ── 初回起動チェック（サマリ表示） ──
   const meta=loadMeta();
   if(meta.lastOpenedDay!==tk){
     const prevSnap=meta.prevSnap||null;
@@ -373,6 +381,30 @@ function checkResets(){
     saveMeta(meta);
     if(prevSnap&&prevSnap.length) showSummaryModal(prevSnap,tk,wk,mk);
   }
+}
+
+// ── サマリの「今日もがんばろう！」押下時にもリセットを強制実行 ──
+// （checkResetsが走っていない場合の保険）
+function forceResetOnSummaryClose(){
+  const tk=todayKey(), wk=weekKey(), mk=monthKey();
+  todos.forEach(task=>{
+    if((task.freqType==='every'||task.freqType==='everyday-n') && task.lastReset!==tk){
+      task.todayDone=0;
+      if(task.lastWeekReset!==wk) task.weekDone=0;
+      if(task.lastMonthReset!==mk) task.monthDone=0;
+      task.lastReset=tk; task.lastWeekReset=wk; task.lastMonthReset=mk;
+    }
+    if(task.freqType==='week' && task.lastReset!==wk){
+      task.weekDone=0; task.todayDone=0;
+      if(task.lastMonthReset!==mk) task.monthDone=0;
+      task.lastReset=wk; task.lastWeekReset=wk; task.lastMonthReset=mk;
+    }
+    if(task.freqType==='month' && task.lastReset!==mk){
+      task.weekDone=0; task.todayDone=0; task.monthDone=0;
+      task.lastReset=mk; task.lastWeekReset=wk; task.lastMonthReset=mk;
+    }
+  });
+  save();
 }
 
 // ── サマリモーダル ──
@@ -470,7 +502,7 @@ function showSummaryModal(prevSnap,tk,wk,mk){
   }
 
   const bw=document.getElementById('m-btns'); bw.innerHTML=''; bw.style.flexDirection='row';
-  const cb=document.createElement('button'); cb.className='modal-btn confirm'; cb.textContent='今日もがんばろう！'; cb.onclick=closeModal;
+  const cb=document.createElement('button'); cb.className='modal-btn confirm'; cb.textContent='今日もがんばろう！'; cb.onclick=()=>{forceResetOnSummaryClose();closeModal();render();};
   bw.appendChild(cb);
   openModalEl();
 }
@@ -799,7 +831,7 @@ function addTodo(){
   else if(addFreq==='everyday-n'){target=n;label=`毎日${n}回`;}
   else if(addFreq==='week'){target=n;label=`週${n}回`;}
   else if(addFreq==='month'){target=n;label=`月${n}回`;}
-  const tk=resetDayKey(),wk=resetWeekKey(),mk=resetMonthKey();
+  const tk=todayKey(),wk=weekKey(),mk=monthKey();
   todos.push({id:Date.now(),name,freqType:addFreq,freqLabel:label,target,n,
     weekDone:0,todayDone:0,monthDone:0,
     history:new Array(spanFor(addFreq)).fill(0),
