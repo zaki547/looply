@@ -257,7 +257,8 @@ function monthKey(d){ d=d||_d(); return `${d.getFullYear()}-${d.getMonth()}`; }
 function isWeekStart(){ return _d().getDay()===1; }
 function isMonthStart(){ return _d().getDate()===1; }
 
-// ── 午前0時リセット判定（暦日そのまま） ──
+// ── 日付キー（午前0時基準） ──
+// resetDayKey等はtodayKey等の別名として残す（addTodo等が参照）
 function resetDayKey(d){ return todayKey(d||new Date()); }
 function resetWeekKey(d){ return weekKey(d||new Date()); }
 function resetMonthKey(d){ return monthKey(d||new Date()); }
@@ -306,73 +307,78 @@ function calcMonthlyPct(){
   return Math.round(mt.filter(t=>(t.monthDone||0)>=t.target).length/mt.length*100);
 }
 
-// ── リセット（午前0時基準） ──
-// キーは todayKey / weekKey / monthKey（暦日そのまま）を使用
+// ── リセット処理 ──
+// 設計方針:
+//   1. まず「リセットが必要か」を判定し、必要なら前日/前週/前月の記録をhistoryへ保存
+//   2. その後カウントを0にする（順番が重要 — historyにpushしてからリセット）
+//   3. lastResetキーを更新して次回以降リセットが走らないようにする
+//   4. サマリ表示はリセット前のスナップショットを使う
+
+function _needsReset(task){
+  const tk=todayKey(), wk=weekKey(), mk=monthKey();
+  if(!task.lastReset) return true; // 未初期化は必ずリセット対象
+  if((task.freqType==='every'||task.freqType==='everyday-n') && task.lastReset!==tk) return true;
+  if(task.freqType==='week' && task.lastReset!==wk) return true;
+  if(task.freqType==='month' && task.lastReset!==mk) return true;
+  return false;
+}
+
+function _doReset(task){
+  // ① リセット前の実績値でhistoryに1エントリ追加
+  const span=spanFor(task.freqType);
+  if(!task.history||task.history.length===0) task.history=new Array(span).fill(0);
+
+  const tk=todayKey(), wk=weekKey(), mk=monthKey();
+  const ft=task.freqType;
+
+  // historyに追加する値：日タスクはtodayDone基準、週・月タスクはweekDone/monthDone基準
+  let recordVal;
+  if(ft==='every'||ft==='everyday-n'){
+    recordVal = histVal(task.todayDone, task.target);
+  } else if(ft==='week'){
+    recordVal = histVal(task.weekDone, task.target);
+  } else {
+    recordVal = histVal(task.monthDone||task.weekDone, task.target);
+  }
+  task.history.push(recordVal);
+  task.history=task.history.slice(-span);
+
+  // ② カウントを0にリセット
+  task.todayDone=0;
+  // weekDone: 同じ週ならキープ（日タスクのみ）、それ以外は0
+  if(ft==='every'||ft==='everyday-n'){
+    if(!task.lastWeekReset||task.lastWeekReset!==wk) task.weekDone=0;
+  } else {
+    task.weekDone=0;
+  }
+  task.monthDone=0;
+
+  // ③ リセットキーを更新
+  task.lastReset = (ft==='month')?mk:(ft==='week')?wk:tk;
+  task.lastWeekReset=wk;
+  task.lastMonthReset=mk;
+}
+
 function checkResets(){
   const tk=todayKey(), wk=weekKey(), mk=monthKey();
 
-  // リセット前のスナップショット（サマリ用）
+  // サマリ用: リセット前にスナップショットを取る
   const snap=todos.map(t=>({
-    id:t.id,name:t.name,freqType:t.freqType,
-    todayDone:t.todayDone,weekDone:t.weekDone,monthDone:t.monthDone||0,
-    target:t.target,n:t.n
+    id:t.id, name:t.name, freqType:t.freqType,
+    todayDone:t.todayDone, weekDone:t.weekDone, monthDone:t.monthDone||0,
+    target:t.target, n:t.n
   }));
 
   let anyReset=false;
-
   todos.forEach(task=>{
-    // historyの長さを正規化（常に）
-    const span=spanFor(task.freqType);
-    if(!task.history||task.history.length===0) task.history=new Array(span).fill(0);
-    if(task.history.length<span) task.history=[...new Array(span-task.history.length).fill(0),...task.history];
-    task.history=task.history.slice(-span);
-
-    // lastResetが未設定の場合は現在のキーで初期化（初回起動対応）
-    if(!task.lastReset){
-      task.lastReset = (task.freqType==='month')?mk:(task.freqType==='week')?wk:tk;
-      task.lastWeekReset=wk; task.lastMonthReset=mk;
-    }
-
-    // ── 日次リセット（every / everyday-n） ──
-    if((task.freqType==='every'||task.freqType==='everyday-n') && task.lastReset!==tk){
-      // 前日の記録をhistoryに追加
-      task.history.push(histVal(task.todayDone,task.target));
-      task.history=task.history.slice(-span);
-      // カウントを0にリセット
-      task.todayDone=0;
-      // weekDone: 同じ週ならキープ、週をまたいでいれば0
-      if(task.lastWeekReset!==wk) task.weekDone=0;
-      // monthDone: 同じ月ならキープ、月をまたいでいれば0
-      if(task.lastMonthReset!==mk) task.monthDone=0;
-      task.lastReset=tk; task.lastWeekReset=wk; task.lastMonthReset=mk;
-      anyReset=true;
-    }
-
-    // ── 週次リセット（week） ──
-    if(task.freqType==='week' && task.lastReset!==wk){
-      task.history.push(histVal(task.weekDone,task.target));
-      task.history=task.history.slice(-span);
-      // カウントを0にリセット
-      task.weekDone=0; task.todayDone=0;
-      if(task.lastMonthReset!==mk) task.monthDone=0;
-      task.lastReset=wk; task.lastWeekReset=wk; task.lastMonthReset=mk;
-      anyReset=true;
-    }
-
-    // ── 月次リセット（month） ──
-    if(task.freqType==='month' && task.lastReset!==mk){
-      task.history.push(histVal(task.weekDone,task.target));
-      task.history=task.history.slice(-span);
-      // カウントを0にリセット
-      task.weekDone=0; task.todayDone=0; task.monthDone=0;
-      task.lastReset=mk; task.lastWeekReset=wk; task.lastMonthReset=mk;
+    if(_needsReset(task)){
+      _doReset(task);
       anyReset=true;
     }
   });
-
   if(anyReset) save();
 
-  // ── 初回起動チェック（サマリ表示） ──
+  // サマリ表示（今日まだ見ていない場合のみ）
   const meta=loadMeta();
   if(meta.lastOpenedDay!==tk){
     const prevSnap=meta.prevSnap||null;
@@ -383,28 +389,16 @@ function checkResets(){
   }
 }
 
-// ── サマリの「今日もがんばろう！」押下時にもリセットを強制実行 ──
-// （checkResetsが走っていない場合の保険）
+// サマリの「今日もがんばろう！」ボタン用 — リセットが未実行なら強制実行
 function forceResetOnSummaryClose(){
-  const tk=todayKey(), wk=weekKey(), mk=monthKey();
+  let anyReset=false;
   todos.forEach(task=>{
-    if((task.freqType==='every'||task.freqType==='everyday-n') && task.lastReset!==tk){
-      task.todayDone=0;
-      if(task.lastWeekReset!==wk) task.weekDone=0;
-      if(task.lastMonthReset!==mk) task.monthDone=0;
-      task.lastReset=tk; task.lastWeekReset=wk; task.lastMonthReset=mk;
-    }
-    if(task.freqType==='week' && task.lastReset!==wk){
-      task.weekDone=0; task.todayDone=0;
-      if(task.lastMonthReset!==mk) task.monthDone=0;
-      task.lastReset=wk; task.lastWeekReset=wk; task.lastMonthReset=mk;
-    }
-    if(task.freqType==='month' && task.lastReset!==mk){
-      task.weekDone=0; task.todayDone=0; task.monthDone=0;
-      task.lastReset=mk; task.lastWeekReset=wk; task.lastMonthReset=mk;
+    if(_needsReset(task)){
+      _doReset(task);
+      anyReset=true;
     }
   });
-  save();
+  if(anyReset) save();
 }
 
 // ── サマリモーダル ──
