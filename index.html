@@ -324,39 +324,40 @@ function _needsReset(task){
 }
 
 function _doReset(task){
-  // ① リセット前の実績値でhistoryに1エントリ追加
   const span=spanFor(task.freqType);
-  if(!task.history||task.history.length===0) task.history=new Array(span).fill(0);
-
+  if(!task.history) task.history=[];
   const tk=todayKey(), wk=weekKey(), mk=monthKey();
   const ft=task.freqType;
 
-  // historyに追加する値：日タスクはtodayDone基準、週・月タスクはweekDone/monthDone基準
+  // ① リセット直前の実績値（0時をまたいだ瞬間のカウント）でhistoryに追加
   let recordVal;
   if(ft==='every'||ft==='everyday-n'){
     recordVal = histVal(task.todayDone, task.target);
   } else if(ft==='week'){
     recordVal = histVal(task.weekDone, task.target);
   } else {
-    recordVal = histVal(task.monthDone||task.weekDone, task.target);
+    recordVal = histVal(task.monthDone||0, task.target);
   }
   task.history.push(recordVal);
+  // spanは「過去の確定済み記録数」— 現在ドットはrenderDotsが追加するので span分だけ保持
   task.history=task.history.slice(-span);
 
   // ② カウントを0にリセット
   task.todayDone=0;
-  // weekDone: 同じ週ならキープ（日タスクのみ）、それ以外は0
   if(ft==='every'||ft==='everyday-n'){
+    // 週またぎならweekDoneもリセット
     if(!task.lastWeekReset||task.lastWeekReset!==wk) task.weekDone=0;
+    // 月またぎならmonthDoneもリセット
+    if(!task.lastMonthReset||task.lastMonthReset!==mk) task.monthDone=0;
   } else {
     task.weekDone=0;
+    task.monthDone=0;
   }
-  task.monthDone=0;
 
   // ③ リセットキーを更新
-  task.lastReset = (ft==='month')?mk:(ft==='week')?wk:tk;
-  task.lastWeekReset=wk;
-  task.lastMonthReset=mk;
+  task.lastReset      = (ft==='month')?mk:(ft==='week')?wk:tk;
+  task.lastWeekReset  = wk;
+  task.lastMonthReset = mk;
 }
 
 function checkResets(){
@@ -513,14 +514,32 @@ function renderMeter(p,wrap){
 // ── ドット描画（タップで編集） ──
 function renderDots(hist, grid, ft, todoId){
   grid.innerHTML='';
+  const todo=todos.find(x=>x.id===todoId);
+
+  // 過去の確定済み記録をすべて描画
   (hist||[]).forEach((v,i)=>{
     const d=document.createElement('div');
     d.className='gdot';
     d.style.cssText=`width:${DOT_SZ}px;height:${DOT_SZ}px;background:${dotColor(v)};`;
-    const ago=hist.length-1-i; // 0=最新
+    const ago=(hist||[]).length-i; // 1=1つ前の周期, 2=2つ前...
     d.onclick=()=>openDotEdit(todoId,i,ago,ft);
     grid.appendChild(d);
   });
+
+  // 今日（今週/今月）のドット: 現在進行中なので 0 固定で末尾に追加
+  if(todo){
+    const cur=document.createElement('div');
+    cur.className='gdot';
+    const curVal=ft==='every'||ft==='everyday-n'
+      ? histVal(todo.todayDone,todo.target)
+      : ft==='week'
+        ? histVal(todo.weekDone,todo.target)
+        : histVal(todo.monthDone||0,todo.target);
+    cur.style.cssText=`width:${DOT_SZ}px;height:${DOT_SZ}px;background:${dotColor(curVal)};border:1.5px solid #A0C090;`;
+    cur.title='今日';
+    // 現在ドットはタップしても編集不可（進行中）
+    grid.appendChild(cur);
+  }
 }
 
 // ── ドット編集モーダル ──
@@ -538,7 +557,7 @@ function openDotEdit(todoId, histIdx, ago, ft){
   let editCount = vToCount(currentV);
 
   const agoLabel = ft==='month'?`${ago}ヶ月前`:ft==='week'?`${ago}週前`:`${ago}日前`;
-  const periodLabel = ago===0?(ft==='month'?'今月':ft==='week'?'今週':'今日'):agoLabel;
+  const periodLabel = agoLabel; // history は過去分のみなので ago は常に1以上
 
   document.getElementById('m-title').textContent=`${periodLabel}の記録を編集`;
   document.getElementById('m-body').textContent=t.name;
@@ -576,11 +595,7 @@ function openDotEdit(todoId, histIdx, ago, ft){
         {label:'変更する',cls:'confirm',action:()=>{
           t.history[histIdx]=newV;
           // 最新ドット（ago===0）の場合は現在のカウントにも反映
-          if(ago===0){
-            if(ft==='every'||ft==='everyday-n'){ t.todayDone=editCount; t.weekDone=editCount; t.monthDone=editCount; }
-            else if(ft==='week'){ t.weekDone=editCount; t.monthDone=editCount; }
-            else { t.monthDone=editCount; t.weekDone=editCount; }
-          }
+          // historyの過去確定分を書き換えるだけ（今日分はdoAdjで管理）
           save(); render();
         }},
       ]
@@ -721,7 +736,7 @@ function doAdj(t,delta){
   t.weekDone =Math.max(0,t.weekDone+delta);
   t.todayDone=Math.max(0,t.todayDone+delta);
   t.monthDone=Math.max(0,(t.monthDone||0)+delta);
-  if(t.history&&t.history.length) t.history[t.history.length-1]=histVal(t.weekDone,t.target);
+  // history は過去の確定済み記録のみ — 現在進行中の今日分は含めない
   save(); render();
 }
 
