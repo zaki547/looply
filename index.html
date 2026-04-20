@@ -251,9 +251,9 @@ function isoWeek(date){
   const wn = Math.round((mon-sw1)/604800000)+1;
   return `${mon.getFullYear()}-W${String(wn).padStart(2,'0')}`;
 }
-function todayKey(d){ d=d||_d(); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; }
+function todayKey(d){ d=d||_d(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function weekKey(d){ return isoWeek(d); }
-function monthKey(d){ d=d||_d(); return `${d.getFullYear()}-${d.getMonth()}`; }
+function monthKey(d){ d=d||_d(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 function isWeekStart(){ return _d().getDay()===1; }
 function isMonthStart(){ return _d().getDate()===1; }
 
@@ -267,6 +267,25 @@ function resetMonthKey(d){ return monthKey(d||new Date()); }
 function load(){
   try{ const s=localStorage.getItem(SK); todos=s?JSON.parse(s):genDefaults(); }
   catch(e){ todos=genDefaults(); }
+  // 旧フォーマットのlastResetキーを持つタスクを修正
+  // 旧: "2026-3-21"（月0始まり）→ 新: "2026-04-21"（月1始まり・ゼロ埋め）
+  migrateKeys();
+}
+
+function migrateKeys(){
+  // 旧キー形式は "YYYY-M-D" や "YYYY-M"（月がゼロ埋めなし、0始まり）
+  // 新キー形式は "YYYY-MM-DD" や "YYYY-MM"
+  const oldFmt = /^\d{4}-\d{1,2}(-\d{1,2})?$/;
+  const tk=todayKey(), wk=weekKey(), mk=monthKey();
+  todos.forEach(task=>{
+    const isOld = task.lastReset && oldFmt.test(task.lastReset) && !task.lastReset.includes('W') && task.lastReset.split('-')[1].length <= 1;
+    if(isOld || !task.lastReset){
+      // 旧キーを新フォーマットに強制リセット
+      task.lastReset      = (task.freqType==='month')?mk:(task.freqType==='week')?wk:tk;
+      task.lastWeekReset  = wk;
+      task.lastMonthReset = mk;
+    }
+  });
 }
 function save(){ try{ localStorage.setItem(SK,JSON.stringify(todos)); }catch(e){} }
 function loadMeta(){ try{ return JSON.parse(localStorage.getItem(SK_META)||'{}'); }catch(e){ return {}; } }
@@ -316,10 +335,10 @@ function calcMonthlyPct(){
 
 function _needsReset(task){
   const tk=todayKey(), wk=weekKey(), mk=monthKey();
-  if(!task.lastReset) return true; // 未初期化は必ずリセット対象
-  if((task.freqType==='every'||task.freqType==='everyday-n') && task.lastReset!==tk) return true;
-  if(task.freqType==='week' && task.lastReset!==wk) return true;
-  if(task.freqType==='month' && task.lastReset!==mk) return true;
+  if(!task.lastReset) return true;
+  if(task.freqType==='every'||task.freqType==='everyday-n') return task.lastReset!==tk;
+  if(task.freqType==='week')  return task.lastReset!==wk;
+  if(task.freqType==='month') return task.lastReset!==mk;
   return false;
 }
 
@@ -344,17 +363,16 @@ function _doReset(task){
 
   // ② カウントを0にリセット
   task.todayDone=0;
-  if(ft==='every'||ft==='everyday-n'){
-    // 週またぎならweekDoneもリセット
-    if(!task.lastWeekReset||task.lastWeekReset!==wk) task.weekDone=0;
-    // 月またぎならmonthDoneもリセット
-    if(!task.lastMonthReset||task.lastMonthReset!==mk) task.monthDone=0;
-  } else {
+  if(ft==='week'||ft==='month'){
     task.weekDone=0;
     task.monthDone=0;
+  } else {
+    // every / everyday-n: 週またぎ・月またぎのみweekDone/monthDoneもリセット
+    if(task.lastWeekReset!==wk)  task.weekDone=0;
+    if(task.lastMonthReset!==mk) task.monthDone=0;
   }
 
-  // ③ リセットキーを更新
+  // ③ リセットキーを更新（freqTypeに応じた正しいキーで記録）
   task.lastReset      = (ft==='month')?mk:(ft==='week')?wk:tk;
   task.lastWeekReset  = wk;
   task.lastMonthReset = mk;
