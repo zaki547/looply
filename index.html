@@ -83,7 +83,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku
 .m-layer-b{position:absolute;top:0;left:0;height:100%;border-radius:4px;transition:width .4s;}
 .meter-marker{position:absolute;top:-1px;width:2px;background:var(--tx-s);height:10px;border-radius:1px;left:calc(100% - 1px);}
 
-/* grass — 凡例なし、タップ可能ドット */
 .grass-wrap{padding-top:10px;border-top:.5px solid var(--bd);}
 .grass-header{margin-bottom:6px;}
 .grass-label{font-size:11px;color:var(--tx-s);}
@@ -124,7 +123,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku
 .field input[type=text],.field input[type=number]{width:100%;border:.5px solid var(--bd);border-radius:var(--radius-md);padding:10px 12px;font-size:15px;color:var(--tx);background:var(--iv);outline:none;font-family:inherit;-webkit-appearance:none;}
 .field input:focus{border-color:var(--gr);}
 
-/* ドット編集モーダル */
 .dot-edit-wrap{display:flex;align-items:center;justify-content:center;gap:16px;padding:1rem 0;}
 .dot-edit-btn{width:44px;height:44px;border-radius:50%;border:1.5px solid var(--bd);background:transparent;font-size:22px;cursor:pointer;color:var(--tx);display:flex;align-items:center;justify-content:center;font-family:inherit;}
 .dot-edit-btn.plus{border-color:var(--gr);color:var(--gr);}
@@ -136,6 +134,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku
 .install-banner{display:none;background:var(--gr-l);border:.5px solid var(--gr);border-radius:var(--radius-lg);padding:12px 14px;margin-bottom:1.25rem;font-size:13px;color:var(--gr-d);line-height:1.5;}
 .install-banner.show{display:block;}
 .install-banner strong{font-weight:600;}
+
+.undo-toast{display:none;position:fixed;bottom:calc(var(--safe-bottom) + 5.5rem);left:50%;transform:translateX(-50%);width:calc(100% - 2.5rem);max-width:440px;z-index:150;border-radius:var(--radius-lg);overflow:hidden;box-shadow:0 4px 20px rgba(74,63,53,.25);}
+.undo-toast.show{display:block;}
+.undo-inner{display:flex;align-items:stretch;}
+.undo-btn{flex:1;padding:14px 16px;border:none;background:var(--tx);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;text-align:center;-webkit-tap-highlight-color:transparent;}
+.undo-btn:active{opacity:.85;}
+.undo-close{width:52px;flex-shrink:0;border:none;border-left:1px solid rgba(255,255,255,.15);background:var(--tx);color:rgba(255,255,255,.6);font-size:16px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;}
+.undo-close:active{opacity:.7;}
+.undo-bar{height:4px;width:100%;background:var(--gr);}
+
 
 .summary-section{margin-bottom:1.25rem;}
 .summary-section-title{font-size:11px;font-weight:600;color:var(--tx-s);letter-spacing:.06em;margin-bottom:8px;}
@@ -150,15 +158,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku
 .summary-task-icon{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;font-weight:700;}
 .icon-done{background:var(--gr-l);color:var(--gr-d);}
 .icon-miss{background:#F5E0D8;color:#A03010;}
-.icon-over{background:#2A6020;color:#fff;}
 .summary-task-name{flex:1;color:var(--tx);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .summary-task-pct{font-size:12px;color:var(--tx-s);flex-shrink:0;}
-.summary-progress-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;}
-.summary-prog-card{background:var(--iv);border-radius:var(--radius-md);padding:10px 12px;}
-.summary-prog-label{font-size:11px;color:var(--tx-s);margin-bottom:4px;}
-.summary-prog-value{font-size:18px;font-weight:600;color:var(--tx);}
-.summary-prog-bar{height:4px;background:var(--br-l);border-radius:4px;margin-top:6px;overflow:hidden;}
-.summary-prog-bar-fill{height:100%;border-radius:4px;background:var(--gr);}
 </style>
 </head>
 <body>
@@ -209,6 +210,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku
   </div>
 </div>
 
+<div class="undo-toast" id="undo-toast">
+  <div class="undo-inner">
+    <button class="undo-btn" id="undo-btn"></button>
+    <button class="undo-close" id="undo-close">✕</button>
+  </div>
+  <div class="undo-bar" id="undo-bar"></div>
+</div>
+
 <div class="modal-bg" id="modal-bg" onclick="bgClose(event)">
   <div class="modal" id="modal-box">
     <div class="modal-handle"></div>
@@ -220,451 +229,376 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku
 </div>
 
 <script>
-const SK      = 'teinei_pwa_v1';
-const SK_META = 'teinei_meta_v1';
-let todos = [], addFreq = 'every', curView = 'day';
+// ── Storage ──
+const SK = 'looply_v2';
+const SK_META = 'looply_meta_v2';
+let todos = [];
+let addFreq = 'every';
+let curView = 'day';
+let undoState = null;
+const UNDO_MS = 4000;
 
 const VIEWS = [
-  {key:'day',  label:'日', freqTypes:['every','everyday-n']},
-  {key:'week', label:'週', freqTypes:['week']},
-  {key:'month',label:'月', freqTypes:['month']},
+  { key: 'day',   label: '日', freqTypes: ['every', 'everyday-n'] },
+  { key: 'week',  label: '週', freqTypes: ['week'] },
+  { key: 'month', label: '月', freqTypes: ['month'] },
 ];
 
-// ── 芝生設定 ──
-// 全タイプ共通ドットサイズ14px、数は日14/週12/月6
+// ── Grass config ──
 const DOT_SZ = 14;
-function spanFor(ft){ return ft==='month'?6:ft==='week'?12:14; }
-function grassLabel(ft){ return ft==='month'?'過去6ヶ月':ft==='week'?'過去12週間':'過去14日間'; }
-function dotColor(v){ return ['#E8E2D8','#B8D9A8','#8BAF7A','#2A6020'][v]||'#E8E2D8'; }
-// v: 0=80%未満, 1=80-99%, 2=100-119%, 3=120%以上
-function histVal(d,t){ const p=pct(d,t); return p<80?0:p<100?1:p<120?2:3; }
+function spanFor(ft) { return ft === 'month' ? 6 : ft === 'week' ? 12 : 14; }
+function grassLabel(ft) { return ft === 'month' ? '過去6ヶ月' : ft === 'week' ? '過去12週間' : '過去14日間'; }
+function dotColor(v) { return ['#E8E2D8', '#B8D9A8', '#8BAF7A', '#2A6020'][v] || '#E8E2D8'; }
 
-// ── 日付ユーティリティ ──
-function _d(){ return new Date(); }
-
-function isoWeek(date){
-  const d = date ? new Date(date) : new Date();
-  const dow = d.getDay()===0?7:d.getDay();
-  const mon = new Date(d); mon.setDate(d.getDate()-(dow-1));
-  const jan4 = new Date(mon.getFullYear(),0,4);
-  const sw1 = new Date(jan4); sw1.setDate(jan4.getDate()-(jan4.getDay()===0?6:jan4.getDay()-1));
-  const wn = Math.round((mon-sw1)/604800000)+1;
-  return `${mon.getFullYear()}-W${String(wn).padStart(2,'0')}`;
+// ── Date utils ──
+function todayKey() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
-function todayKey(d){ d=d||_d(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
-function weekKey(d){ return isoWeek(d); }
-function monthKey(d){ d=d||_d(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
-function isWeekStart(){ return _d().getDay()===1; }
-function isMonthStart(){ return _d().getDate()===1; }
-
-// ── 日付キー（午前0時基準） ──
-// resetDayKey等はtodayKey等の別名として残す（addTodo等が参照）
-function resetDayKey(d){ return todayKey(d||new Date()); }
-function resetWeekKey(d){ return weekKey(d||new Date()); }
-function resetMonthKey(d){ return monthKey(d||new Date()); }
-
-// ── load / save ──
-function load(){
-  try{ const s=localStorage.getItem(SK); todos=s?JSON.parse(s):genDefaults(); }
-  catch(e){ todos=genDefaults(); }
-  // 旧フォーマットのlastResetキーを持つタスクを修正
-  // 旧: "2026-3-21"（月0始まり）→ 新: "2026-04-21"（月1始まり・ゼロ埋め）
-  migrateKeys();
+function weekKey() {
+  const d = new Date();
+  const dow = d.getDay() === 0 ? 7 : d.getDay();
+  const mon = new Date(d); mon.setDate(d.getDate() - (dow - 1));
+  const jan4 = new Date(mon.getFullYear(), 0, 4);
+  const sw1 = new Date(jan4); sw1.setDate(jan4.getDate() - (jan4.getDay() === 0 ? 6 : jan4.getDay() - 1));
+  const wn = Math.round((mon - sw1) / 604800000) + 1;
+  return mon.getFullYear() + '-W' + String(wn).padStart(2, '0');
+}
+function monthKey() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
 }
 
-function migrateKeys(){
-  // 旧キー形式は "YYYY-M-D" や "YYYY-M"（月がゼロ埋めなし、0始まり）
-  // 新キー形式は "YYYY-MM-DD" や "YYYY-MM"
-  const oldFmt = /^\d{4}-\d{1,2}(-\d{1,2})?$/;
-  const tk=todayKey(), wk=weekKey(), mk=monthKey();
-  todos.forEach(task=>{
-    const isOld = task.lastReset && oldFmt.test(task.lastReset) && !task.lastReset.includes('W') && task.lastReset.split('-')[1].length <= 1;
-    if(isOld || !task.lastReset){
-      // 旧キーを新フォーマットに強制リセット
-      task.lastReset      = (task.freqType==='month')?mk:(task.freqType==='week')?wk:tk;
-      task.lastWeekReset  = wk;
-      task.lastMonthReset = mk;
+// ── Load / Save ──
+function save() {
+  try { localStorage.setItem(SK, JSON.stringify(todos)); } catch (e) {}
+}
+function loadMeta() {
+  try { return JSON.parse(localStorage.getItem(SK_META) || '{}'); } catch (e) { return {}; }
+}
+function saveMeta(m) {
+  try { localStorage.setItem(SK_META, JSON.stringify(m)); } catch (e) {}
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(SK);
+    if (raw) {
+      todos = JSON.parse(raw);
+      ensureKeys();
+      return;
     }
+    // Migrate from old format
+    const old = localStorage.getItem('teinei_pwa_v1');
+    if (old) {
+      todos = migrateOld(JSON.parse(old));
+      save();
+      return;
+    }
+  } catch (e) {}
+  todos = genDefaults();
+}
+
+function ensureKeys() {
+  const dk = todayKey(), wk = weekKey(), mk = monthKey();
+  todos.forEach(t => {
+    if (!t.lastDayKey)   t.lastDayKey   = dk;
+    if (!t.lastWeekKey)  t.lastWeekKey  = wk;
+    if (!t.lastMonthKey) t.lastMonthKey = mk;
+    if (!t.history)      t.history      = new Array(spanFor(t.freqType)).fill(0);
+    if (t.todayDone  === undefined) t.todayDone  = 0;
+    if (t.weekDone   === undefined) t.weekDone   = 0;
+    if (t.monthDone  === undefined) t.monthDone  = 0;
   });
 }
-function save(){ try{ localStorage.setItem(SK,JSON.stringify(todos)); }catch(e){} }
-function loadMeta(){ try{ return JSON.parse(localStorage.getItem(SK_META)||'{}'); }catch(e){ return {}; } }
-function saveMeta(m){ try{ localStorage.setItem(SK_META,JSON.stringify(m)); }catch(e){} }
 
-function genDefaults(){
-  const tk=todayKey(),wk=weekKey(),mk=monthKey();
+function migrateOld(oldTodos) {
+  const dk = todayKey(), wk = weekKey(), mk = monthKey();
+  return oldTodos.map(t => ({
+    id:           t.id,
+    name:         t.name,
+    freqType:     t.freqType,
+    freqLabel:    t.freqLabel,
+    target:       t.target,
+    n:            t.n,
+    todayDone:    t.todayDone  || 0,
+    weekDone:     t.weekDone   || 0,
+    monthDone:    t.monthDone  || 0,
+    history:      t.history    || new Array(spanFor(t.freqType)).fill(0),
+    lastDayKey:   dk,
+    lastWeekKey:  wk,
+    lastMonthKey: mk,
+  }));
+}
+
+function genDefaults() {
+  const dk = todayKey(), wk = weekKey(), mk = monthKey();
+  function rh(ft) {
+    return Array.from({ length: spanFor(ft) }, () => { const r = Math.random(); return r < .15 ? 0 : r < .45 ? 1 : r < .75 ? 2 : 3; });
+  }
   return [
-    {id:1,name:'朝の白湯を飲む', freqType:'every',      freqLabel:'毎日',    target:1,n:1,weekDone:6, todayDone:1,monthDone:18,history:genHist('every'),  lastReset:tk,lastWeekReset:wk,lastMonthReset:mk},
-    {id:2,name:'腕立て伏せ',     freqType:'everyday-n', freqLabel:'毎日3回', target:3,n:3,weekDone:11,todayDone:2,monthDone:55,history:genHist('everyday-n'),lastReset:tk,lastWeekReset:wk,lastMonthReset:mk},
-    {id:3,name:'ジムに行く',     freqType:'week',        freqLabel:'週2回',   target:2,n:2,weekDone:3, todayDone:0,monthDone:8, history:genHist('week'),   lastReset:wk,lastWeekReset:wk,lastMonthReset:mk},
-    {id:4,name:'日記を書く',     freqType:'month',       freqLabel:'月8回',   target:8,n:8,weekDone:10,todayDone:1,monthDone:10,history:genHist('month'),  lastReset:mk,lastWeekReset:wk,lastMonthReset:mk},
+    { id: 1, name: '朝の白湯を飲む', freqType: 'every',      freqLabel: '毎日',    target: 1, n: 1, todayDone: 1, weekDone: 6,  monthDone: 18, history: rh('every'),      lastDayKey: dk, lastWeekKey: wk, lastMonthKey: mk },
+    { id: 2, name: '腕立て伏せ',     freqType: 'everyday-n', freqLabel: '毎日3回', target: 3, n: 3, todayDone: 2, weekDone: 11, monthDone: 55, history: rh('everyday-n'), lastDayKey: dk, lastWeekKey: wk, lastMonthKey: mk },
+    { id: 3, name: 'ジムに行く',     freqType: 'week',        freqLabel: '週2回',   target: 2, n: 2, todayDone: 0, weekDone: 3,  monthDone: 8,  history: rh('week'),       lastDayKey: dk, lastWeekKey: wk, lastMonthKey: mk },
+    { id: 4, name: '日記を書く',     freqType: 'month',       freqLabel: '月8回',   target: 8, n: 8, todayDone: 1, weekDone: 10, monthDone: 10, history: rh('month'),      lastDayKey: dk, lastWeekKey: wk, lastMonthKey: mk },
   ];
 }
-function genHist(ft){
-  return Array.from({length:spanFor(ft)},()=>{const r=Math.random();return r<.15?0:r<.45?1:r<.75?2:3;});
+
+// ── Helpers ──
+function pct(done, target) { return target ? Math.round(done / target * 100) : 0; }
+function lvClass(p) { return p <= 100 ? '' : p <= 150 ? 'lv1' : p <= 200 ? 'lv2' : 'lv3'; }
+function pctPill(p) { return p <= 100 ? 'pct-normal' : p <= 150 ? 'pct-lv1' : p <= 200 ? 'pct-lv2' : 'pct-lv3'; }
+function escHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function histVal(done, target) { const p = pct(done, target); return p < 80 ? 0 : p < 100 ? 1 : p < 120 ? 2 : 3; }
+
+// Returns the display count for a task (correct field per type)
+function getCount(t) {
+  if (t.freqType === 'every' || t.freqType === 'everyday-n') return t.todayDone;
+  if (t.freqType === 'week') return t.weekDone;
+  return t.monthDone;
 }
 
-// ── 計算ヘルパー ──
-function pct(d,t){ return t?Math.round(d/t*100):0; }
-function lvClass(p){ return p<=100?'':p<=150?'lv1':p<=200?'lv2':'lv3'; }
-function pctPill(p){ return p<=100?'pct-normal':p<=150?'pct-lv1':p<=200?'pct-lv2':'pct-lv3'; }
-
-function calcDailyPct(){
-  const daily=todos.filter(t=>t.freqType==='every'||t.freqType==='everyday-n');
-  if(!daily.length) return 0;
-  const done=daily.filter(t=>t.freqType==='everyday-n'?t.todayDone>=t.target:t.todayDone>=1).length;
-  return Math.round(done/daily.length*100);
-}
-function calcWeeklyPct(){
-  const wt=todos.filter(t=>t.freqType==='week');
-  if(!wt.length) return 0;
-  return Math.round(wt.filter(t=>t.weekDone>=t.target).length/wt.length*100);
-}
-function calcMonthlyPct(){
-  const mt=todos.filter(t=>t.freqType==='month');
-  if(!mt.length) return 0;
-  return Math.round(mt.filter(t=>(t.monthDone||0)>=t.target).length/mt.length*100);
+// Returns whether the task is "done" for the current period
+function isDone(t) {
+  if (t.freqType === 'every')      return t.todayDone >= 1;
+  if (t.freqType === 'everyday-n') return t.todayDone >= t.target;
+  if (t.freqType === 'week')       return t.weekDone  >= t.target;
+  return t.monthDone >= t.target;
 }
 
-// ── リセット処理 ──
-// 設計方針:
-//   1. まず「リセットが必要か」を判定し、必要なら前日/前週/前月の記録をhistoryへ保存
-//   2. その後カウントを0にする（順番が重要 — historyにpushしてからリセット）
-//   3. lastResetキーを更新して次回以降リセットが走らないようにする
-//   4. サマリ表示はリセット前のスナップショットを使う
+// ── Reset (runs on load and every minute) ──
+function checkResets() {
+  const dk = todayKey(), wk = weekKey(), mk = monthKey();
+  let changed = false;
 
-function _needsReset(task){
-  const tk=todayKey(), wk=weekKey(), mk=monthKey();
-  if(!task.lastReset) return true;
-  if(task.freqType==='every'||task.freqType==='everyday-n') return task.lastReset!==tk;
-  if(task.freqType==='week')  return task.lastReset!==wk;
-  if(task.freqType==='month') return task.lastReset!==mk;
-  return false;
-}
+  // Snapshot daily tasks BEFORE resetting (for summary modal)
+  const snap = todos
+    .filter(t => t.freqType === 'every' || t.freqType === 'everyday-n')
+    .map(t => ({ name: t.name, freqType: t.freqType, todayDone: t.todayDone, target: t.target }));
 
-function _doReset(task){
-  const span=spanFor(task.freqType);
-  if(!task.history) task.history=[];
-  const tk=todayKey(), wk=weekKey(), mk=monthKey();
-  const ft=task.freqType;
+  let dayReset = false;
 
-  // ① リセット直前の実績値（0時をまたいだ瞬間のカウント）でhistoryに追加
-  let recordVal;
-  if(ft==='every'||ft==='everyday-n'){
-    recordVal = histVal(task.todayDone, task.target);
-  } else if(ft==='week'){
-    recordVal = histVal(task.weekDone, task.target);
-  } else {
-    recordVal = histVal(task.monthDone||0, task.target);
-  }
-  task.history.push(recordVal);
-  // spanは「過去の確定済み記録数」— 現在ドットはrenderDotsが追加するので span分だけ保持
-  task.history=task.history.slice(-span);
+  todos.forEach(task => {
+    // Daily reset: every / everyday-n
+    if ((task.freqType === 'every' || task.freqType === 'everyday-n') && task.lastDayKey !== dk) {
+      task.history.push(histVal(task.todayDone, task.target));
+      task.history = task.history.slice(-spanFor(task.freqType));
+      task.todayDone = 0;
+      task.lastDayKey = dk;
+      changed = true;
+      dayReset = true;
+    }
 
-  // ② カウントを0にリセット
-  task.todayDone=0;
-  if(ft==='week'||ft==='month'){
-    task.weekDone=0;
-    task.monthDone=0;
-  } else {
-    // every / everyday-n: 週またぎ・月またぎのみweekDone/monthDoneもリセット
-    if(task.lastWeekReset!==wk)  task.weekDone=0;
-    if(task.lastMonthReset!==mk) task.monthDone=0;
-  }
+    // Weekly reset: week tasks reset weekDone; daily tasks also reset weekDone on new week
+    if (task.lastWeekKey !== wk) {
+      if (task.freqType === 'week') {
+        task.history.push(histVal(task.weekDone, task.target));
+        task.history = task.history.slice(-spanFor(task.freqType));
+      }
+      task.weekDone = 0;
+      task.lastWeekKey = wk;
+      changed = true;
+    }
 
-  // ③ リセットキーを更新（freqTypeに応じた正しいキーで記録）
-  task.lastReset      = (ft==='month')?mk:(ft==='week')?wk:tk;
-  task.lastWeekReset  = wk;
-  task.lastMonthReset = mk;
-}
-
-function checkResets(){
-  const tk=todayKey(), wk=weekKey(), mk=monthKey();
-
-  // サマリ用: リセット前にスナップショットを取る
-  const snap=todos.map(t=>({
-    id:t.id, name:t.name, freqType:t.freqType,
-    todayDone:t.todayDone, weekDone:t.weekDone, monthDone:t.monthDone||0,
-    target:t.target, n:t.n
-  }));
-
-  let anyReset=false;
-  todos.forEach(task=>{
-    if(_needsReset(task)){
-      _doReset(task);
-      anyReset=true;
+    // Monthly reset: month tasks reset monthDone; others reset monthDone on new month
+    if (task.lastMonthKey !== mk) {
+      if (task.freqType === 'month') {
+        task.history.push(histVal(task.monthDone, task.target));
+        task.history = task.history.slice(-spanFor(task.freqType));
+      }
+      task.monthDone = 0;
+      task.lastMonthKey = mk;
+      changed = true;
     }
   });
-  if(anyReset) save();
 
-  // サマリ表示（今日まだ見ていない場合のみ）
-  const meta=loadMeta();
-  if(meta.lastOpenedDay!==tk){
-    const prevSnap=meta.prevSnap||null;
-    meta.lastOpenedDay=tk;
-    meta.prevSnap=snap;
+  if (changed) save();
+
+  // Show yesterday's summary on first open of a new day
+  const meta = loadMeta();
+  if (dayReset && meta.lastOpenedDay !== dk) {
+    meta.lastOpenedDay = dk;
     saveMeta(meta);
-    if(prevSnap&&prevSnap.length) showSummaryModal(prevSnap,tk,wk,mk);
+    if (snap.length > 0) setTimeout(() => showSummaryModal(snap), 400);
+  } else if (meta.lastOpenedDay !== dk) {
+    meta.lastOpenedDay = dk;
+    saveMeta(meta);
   }
 }
 
-// サマリの「今日もがんばろう！」ボタン用 — リセットが未実行なら強制実行
-function forceResetOnSummaryClose(){
-  let anyReset=false;
-  todos.forEach(task=>{
-    if(_needsReset(task)){
-      _doReset(task);
-      anyReset=true;
-    }
+// ── Summary modal ──
+function showSummaryModal(snap) {
+  const doneTasks = snap.filter(t => t.freqType === 'everyday-n' ? t.todayDone >= t.target : t.todayDone >= 1);
+  const p = snap.length ? Math.round(doneTasks.length / snap.length * 100) : 0;
+
+  document.getElementById('m-title').textContent = '昨日のサマリ';
+  document.getElementById('m-body').textContent = '';
+  const ct = document.getElementById('m-content'); ct.innerHTML = '';
+
+  const sec = document.createElement('div'); sec.className = 'summary-section';
+  const ov = document.createElement('div'); ov.className = 'summary-overall';
+  ov.innerHTML = `<div class="summary-overall-pct">${p}%</div><div class="summary-overall-bar-wrap"><div class="summary-overall-label">昨日の達成率</div><div class="summary-overall-bar"><div class="summary-overall-bar-fill" style="width:${Math.min(p, 100)}%"></div></div></div>`;
+  sec.appendChild(ov);
+
+  const tl = document.createElement('div'); tl.className = 'summary-task-list';
+  snap.forEach(t => {
+    const done = t.freqType === 'everyday-n' ? t.todayDone >= t.target : t.todayDone >= 1;
+    const label = t.freqType === 'everyday-n' ? `${t.todayDone}/${t.target}回` : (done ? '達成' : '未達成');
+    const row = document.createElement('div'); row.className = 'summary-task-row';
+    row.innerHTML = `<div class="summary-task-icon ${done ? 'icon-done' : 'icon-miss'}">${done ? '✓' : '✕'}</div><span class="summary-task-name">${escHtml(t.name)}</span><span class="summary-task-pct">${label}</span>`;
+    tl.appendChild(row);
   });
-  if(anyReset) save();
-}
+  sec.appendChild(tl); ct.appendChild(sec);
 
-// ── サマリモーダル ──
-function showSummaryModal(prevSnap,tk,wk,mk){
-  const isWeek=isWeekStart(), isMon=isMonthStart();
-  const dailySnap=prevSnap.filter(t=>t.freqType==='every'||t.freqType==='everyday-n');
-  const weekSnap=prevSnap.filter(t=>t.freqType==='week'||t.freqType==='every'||t.freqType==='everyday-n');
-
-  const dailyTotal=dailySnap.length;
-  const dailyDone=dailySnap.filter(t=>t.freqType==='everyday-n'?t.todayDone>=t.target:t.todayDone>=1).length;
-  const dailyPct=dailyTotal?Math.round(dailyDone/dailyTotal*100):null;
-
-  let weeklyPct=null;
-  if(isWeek&&weekSnap.length){
-    let ws=0;
-    weekSnap.forEach(t=>{
-      if(t.freqType==='every') ws+=pct(t.weekDone,7);
-      else if(t.freqType==='everyday-n') ws+=pct(t.weekDone,t.target*7);
-      else ws+=pct(t.weekDone,t.target);
-    });
-    weeklyPct=Math.round(ws/weekSnap.length);
-  }
-
-  let monthlyPct=null;
-  if(isMon&&prevSnap.length){
-    const prevD=new Date(); prevD.setMonth(prevD.getMonth()-1);
-    const dim=new Date(prevD.getFullYear(),prevD.getMonth()+1,0).getDate();
-    let ms=0;
-    prevSnap.forEach(t=>{
-      let mt;
-      if(t.freqType==='every') mt=dim;
-      else if(t.freqType==='everyday-n') mt=t.target*dim;
-      else if(t.freqType==='week') mt=Math.round(dim/7*t.target);
-      else mt=t.target;
-      ms+=pct(t.monthDone,mt);
-    });
-    monthlyPct=Math.round(ms/prevSnap.length);
-  }
-
-  let title='前日のサマリ';
-  if(isMon&&isWeek) title='先週・先月のサマリ';
-  else if(isMon) title='先月のサマリ';
-  else if(isWeek) title='先週のサマリ';
-
-  document.getElementById('m-title').textContent=title;
-  document.getElementById('m-body').textContent='';
-  const ct=document.getElementById('m-content'); ct.innerHTML='';
-
-  if(dailyTotal>0){
-    const sec=document.createElement('div'); sec.className='summary-section';
-    const st=document.createElement('div'); st.className='summary-section-title'; st.textContent='昨日の達成';
-    sec.appendChild(st);
-    if(dailyPct!==null){
-      const ov=document.createElement('div'); ov.className='summary-overall';
-      ov.innerHTML=`<div class="summary-overall-pct">${dailyPct}%</div><div class="summary-overall-bar-wrap"><div class="summary-overall-label">全体達成率</div><div class="summary-overall-bar"><div class="summary-overall-bar-fill" style="width:${Math.min(dailyPct,100)}%"></div></div></div>`;
-      sec.appendChild(ov);
-    }
-    const tl=document.createElement('div'); tl.className='summary-task-list';
-    dailySnap.forEach(t=>{
-      const isDone=t.freqType==='everyday-n'?t.todayDone>=t.target:t.todayDone>=1;
-      const p=t.freqType==='everyday-n'?pct(t.todayDone,t.target):(t.todayDone>=1?100:0);
-      const row=document.createElement('div'); row.className='summary-task-row';
-      row.innerHTML=`<div class="summary-task-icon ${p>=120?'icon-over':isDone?'icon-done':'icon-miss'}">✓</div><span class="summary-task-name">${escHtml(t.name)}</span><span class="summary-task-pct">${t.freqType==='everyday-n'?`${t.todayDone}/${t.target}回`:(isDone?'達成':'未達成')}</span>`;if(!isDone){row.querySelector('.summary-task-icon').textContent='✕';}
-      tl.appendChild(row);
-    });
-    sec.appendChild(tl); ct.appendChild(sec);
-  }
-
-  if(isWeek&&weeklyPct!==null){
-    const sec=document.createElement('div'); sec.className='summary-section';
-    const st=document.createElement('div'); st.className='summary-section-title'; st.textContent='先週の進捗';
-    sec.appendChild(st);
-    const cards=document.createElement('div'); cards.className='summary-progress-row';
-    const wCard=document.createElement('div'); wCard.className='summary-prog-card';
-    wCard.innerHTML=`<div class="summary-prog-label">先週の達成率</div><div class="summary-prog-value">${weeklyPct}%</div><div class="summary-prog-bar"><div class="summary-prog-bar-fill" style="width:${Math.min(weeklyPct,100)}%"></div></div>`;
-    cards.appendChild(wCard); sec.appendChild(cards);
-    const wl=document.createElement('div'); wl.className='summary-task-list';
-    weekSnap.forEach(t=>{
-      const wt=t.freqType==='every'?7:t.freqType==='everyday-n'?t.target*7:t.target;
-      const wp2=pct(t.weekDone,wt);
-      const row=document.createElement('div'); row.className='summary-task-row';
-      row.innerHTML=`<div class="summary-task-icon ${wp2>=120?'icon-over':wp2>=100?'icon-done':'icon-miss'}">✓</div><span class="summary-task-name">${escHtml(t.name)}</span><span class="summary-task-pct">${wp2}%</span>`;if(wp2<100){row.querySelector('.summary-task-icon').textContent='✕';}
-      wl.appendChild(row);
-    });
-    sec.appendChild(wl); ct.appendChild(sec);
-  }
-
-  if(isMon&&monthlyPct!==null){
-    const sec=document.createElement('div'); sec.className='summary-section';
-    const st=document.createElement('div'); st.className='summary-section-title'; st.textContent='先月の進捗';
-    sec.appendChild(st);
-    const mCard=document.createElement('div'); mCard.className='summary-prog-card';
-    mCard.innerHTML=`<div class="summary-prog-label">先月の達成率</div><div class="summary-prog-value">${monthlyPct}%</div><div class="summary-prog-bar"><div class="summary-prog-bar-fill" style="width:${Math.min(monthlyPct,100)}%"></div></div>`;
-    sec.appendChild(mCard); ct.appendChild(sec);
-  }
-
-  const bw=document.getElementById('m-btns'); bw.innerHTML=''; bw.style.flexDirection='row';
-  const cb=document.createElement('button'); cb.className='modal-btn confirm'; cb.textContent='今日もがんばろう！'; cb.onclick=()=>{forceResetOnSummaryClose();closeModal();render();};
+  const bw = document.getElementById('m-btns'); bw.innerHTML = ''; bw.style.flexDirection = 'row';
+  const cb = document.createElement('button'); cb.className = 'modal-btn confirm'; cb.textContent = '今日もがんばろう！';
+  cb.onclick = () => { closeModal(); render(); };
   bw.appendChild(cb);
   openModalEl();
 }
 
-// ── メーター ──
-function meterColors(lap){ const c=['#8BAF7A','#F5C84A','#E8960A','#C8640A']; return{a:c[Math.max(0,lap-1)],b:c[Math.min(lap,c.length-1)]}; }
-function renderMeter(p,wrap){
-  const lap=Math.floor(p/100),rem=p%100,c=meterColors(lap);
-  const tr=wrap.querySelector('.meter-track'); tr.innerHTML='';
-  if(lap>0){const a=document.createElement('div');a.className='m-layer-a';a.style.cssText=`width:100%;background:${c.a};`;tr.appendChild(a);}
-  const b=document.createElement('div');b.className='m-layer-b';b.style.cssText=`width:${rem}%;background:${c.b};`;tr.appendChild(b);
+// ── Stats ──
+function calcDailyPct() {
+  const ts = todos.filter(t => t.freqType === 'every' || t.freqType === 'everyday-n');
+  if (!ts.length) return 0;
+  return Math.round(ts.filter(isDone).length / ts.length * 100);
+}
+function calcWeeklyPct() {
+  const ts = todos.filter(t => t.freqType === 'week');
+  if (!ts.length) return 0;
+  return Math.round(ts.filter(t => t.weekDone >= t.target).length / ts.length * 100);
+}
+function calcMonthlyPct() {
+  const ts = todos.filter(t => t.freqType === 'month');
+  if (!ts.length) return 0;
+  return Math.round(ts.filter(t => t.monthDone >= t.target).length / ts.length * 100);
 }
 
-// ── ドット描画（タップで編集） ──
-function renderDots(hist, grid, ft, todoId){
-  grid.innerHTML='';
-  const todo=todos.find(x=>x.id===todoId);
+// ── Meter ──
+function meterColors(lap) {
+  const c = ['#8BAF7A', '#F5C84A', '#E8960A', '#C8640A'];
+  const last = c.length - 1;
+  return { a: c[Math.min(Math.max(0, lap - 1), last)], b: c[Math.min(lap, last)] };
+}
+function renderMeter(p, wrap) {
+  const lap = Math.floor(p / 100), rem = p % 100, c = meterColors(lap);
+  const tr = wrap.querySelector('.meter-track'); tr.innerHTML = '';
+  if (lap > 0) {
+    const a = document.createElement('div'); a.className = 'm-layer-a';
+    a.style.cssText = `width:100%;background:${c.a};`; tr.appendChild(a);
+  }
+  const b = document.createElement('div'); b.className = 'm-layer-b';
+  b.style.cssText = `width:${rem}%;background:${c.b};`; tr.appendChild(b);
+}
 
-  // 過去の確定済み記録をすべて描画
-  (hist||[]).forEach((v,i)=>{
-    const d=document.createElement('div');
-    d.className='gdot';
-    d.style.cssText=`width:${DOT_SZ}px;height:${DOT_SZ}px;background:${dotColor(v)};`;
-    const ago=(hist||[]).length-i; // 1=1つ前の周期, 2=2つ前...
-    d.onclick=()=>openDotEdit(todoId,i,ago,ft);
+// ── Dots ──
+function renderDots(hist, grid, ft, todoId) {
+  grid.innerHTML = '';
+  const todo = todos.find(x => x.id === todoId);
+  (hist || []).forEach((v, i) => {
+    const d = document.createElement('div'); d.className = 'gdot';
+    d.style.cssText = `width:${DOT_SZ}px;height:${DOT_SZ}px;background:${dotColor(v)};`;
+    const ago = hist.length - i;
+    d.onclick = () => openDotEdit(todoId, i, ago, ft);
     grid.appendChild(d);
   });
-
-  // 今日（今週/今月）のドット: 現在進行中なので 0 固定で末尾に追加
-  if(todo){
-    const cur=document.createElement('div');
-    cur.className='gdot';
-    const curVal=ft==='every'||ft==='everyday-n'
-      ? histVal(todo.todayDone,todo.target)
-      : ft==='week'
-        ? histVal(todo.weekDone,todo.target)
-        : histVal(todo.monthDone||0,todo.target);
-    cur.style.cssText=`width:${DOT_SZ}px;height:${DOT_SZ}px;background:${dotColor(curVal)};border:1.5px solid #A0C090;`;
-    cur.title='今日';
-    // 現在ドットはタップしても編集不可（進行中）
+  // Current period dot (outlined, not editable)
+  if (todo) {
+    const cur = document.createElement('div'); cur.className = 'gdot';
+    const curVal = histVal(getCount(todo), todo.target);
+    cur.style.cssText = `width:${DOT_SZ}px;height:${DOT_SZ}px;background:${dotColor(curVal)};border:1.5px solid #A0C090;`;
     grid.appendChild(cur);
   }
 }
 
-// ── ドット編集モーダル ──
-function openDotEdit(todoId, histIdx, ago, ft){
-  const t=todos.find(x=>x.id===todoId); if(!t)return;
-  const currentV = t.history[histIdx];
-  // vから推定回数（表示用）: 0→0, 1→target*0.9(近似), 2→target, 3→target*1.2
-  // 実際にはhistには回数でなくv値を保存しているので、編集はv値を直接変更
-  // ユーザーには「回数」で見せるため、target基準で±する
+// ── Dot edit modal ──
+function openDotEdit(todoId, histIdx, ago, ft) {
+  const t = todos.find(x => x.id === todoId); if (!t) return;
+  function vToCount(v) { return v === 0 ? 0 : v === 1 ? Math.max(1, t.target - 1) : v === 2 ? t.target : Math.round(t.target * 1.3); }
+  function countToV(c) { const p2 = t.target ? Math.round(c / t.target * 100) : 0; return p2 < 80 ? 0 : p2 < 100 ? 1 : p2 < 120 ? 2 : 3; }
+  let editCount = vToCount(t.history[histIdx]);
+  const agoLabel = ft === 'month' ? `${ago}ヶ月前` : ft === 'week' ? `${ago}週前` : `${ago}日前`;
 
-  // vを回数に変換（編集用の仮の回数）
-  function vToCount(v){ return v===0?0:v===1?Math.max(1,t.target-1):v===2?t.target:Math.round(t.target*1.3); }
-  function countToV(c){ const p2=t.target?Math.round(c/t.target*100):0; return p2<80?0:p2<100?1:p2<120?2:3; }
-
-  let editCount = vToCount(currentV);
-
-  const agoLabel = ft==='month'?`${ago}ヶ月前`:ft==='week'?`${ago}週前`:`${ago}日前`;
-  const periodLabel = agoLabel; // history は過去分のみなので ago は常に1以上
-
-  document.getElementById('m-title').textContent=`${periodLabel}の記録を編集`;
-  document.getElementById('m-body').textContent=t.name;
-
-  const ct=document.getElementById('m-content');
-  ct.innerHTML=`
+  document.getElementById('m-title').textContent = `${agoLabel}の記録を編集`;
+  document.getElementById('m-body').textContent = t.name;
+  const ct = document.getElementById('m-content');
+  ct.innerHTML = `
     <div class="dot-edit-wrap">
       <button class="dot-edit-btn minus" id="de-minus">−</button>
       <span class="dot-edit-num" id="de-num">${editCount}</span>
       <button class="dot-edit-btn plus" id="de-plus">+</button>
     </div>
     <div class="dot-preview" id="de-preview" style="background:${dotColor(countToV(editCount))}"></div>
-    <div class="dot-edit-pct" id="de-pct">${t.target?Math.round(editCount/t.target*100):0}%（目標 ${t.target}回）</div>
+    <div class="dot-edit-pct" id="de-pct">${t.target ? Math.round(editCount / t.target * 100) : 0}%（目標 ${t.target}回）</div>
   `;
-
-  function refresh(){
-    document.getElementById('de-num').textContent=editCount;
-    const v2=countToV(editCount);
-    document.getElementById('de-preview').style.background=dotColor(v2);
-    document.getElementById('de-pct').textContent=`${t.target?Math.round(editCount/t.target*100):0}%（目標 ${t.target}回）`;
+  function refresh() {
+    document.getElementById('de-num').textContent = editCount;
+    const v2 = countToV(editCount);
+    document.getElementById('de-preview').style.background = dotColor(v2);
+    document.getElementById('de-pct').textContent = `${t.target ? Math.round(editCount / t.target * 100) : 0}%（目標 ${t.target}回）`;
   }
+  document.getElementById('de-minus').onclick = () => { if (editCount > 0) { editCount--; refresh(); } };
+  document.getElementById('de-plus').onclick = () => { editCount++; refresh(); };
 
-  document.getElementById('de-minus').onclick=()=>{ if(editCount>0){editCount--;refresh();} };
-  document.getElementById('de-plus').onclick=()=>{ editCount++; refresh(); };
-
-  const bw=document.getElementById('m-btns'); bw.innerHTML=''; bw.style.flexDirection='row';
-  [{label:'キャンセル',cls:'cancel',action:null},{label:'保存',cls:'confirm',action:()=>{
-    // 確認モーダルを挟む
-    const newV=countToV(editCount);
+  const bw = document.getElementById('m-btns'); bw.innerHTML = ''; bw.style.flexDirection = 'row';
+  [{ label: 'キャンセル', cls: 'cancel', action: null }, { label: '保存', cls: 'confirm', action: () => {
+    const newV = countToV(editCount);
     openConfirm(
       '記録を変更しますか？',
-      `${periodLabel}：${editCount}回（${t.target?Math.round(editCount/t.target*100):0}%）に変更します。`,
+      `${agoLabel}：${editCount}回（${t.target ? Math.round(editCount / t.target * 100) : 0}%）に変更します。`,
       [
-        {label:'キャンセル',cls:'cancel',action:null},
-        {label:'変更する',cls:'confirm',action:()=>{
-          t.history[histIdx]=newV;
-          // 最新ドット（ago===0）の場合は現在のカウントにも反映
-          // historyの過去確定分を書き換えるだけ（今日分はdoAdjで管理）
-          save(); render();
-        }},
+        { label: 'キャンセル', cls: 'cancel', action: null },
+        { label: '変更する', cls: 'confirm', action: () => { t.history[histIdx] = newV; save(); render(); } },
       ]
     );
-  }}].forEach(b=>{
-    const el=document.createElement('button'); el.className='modal-btn '+b.cls; el.textContent=b.label;
-    el.onclick=()=>{closeModal();if(b.action)b.action();};
+  }}].forEach(b => {
+    const el = document.createElement('button'); el.className = 'modal-btn ' + b.cls; el.textContent = b.label;
+    el.onclick = () => { closeModal(); if (b.action) b.action(); };
     bw.appendChild(el);
   });
   openModalEl();
 }
 
-// ── タブ / セクション ──
-function buildTabs(){
-  const wrap=document.getElementById('view-tabs'); wrap.innerHTML='';
-  VIEWS.forEach(v=>{
-    const btn=document.createElement('button');
-    btn.className='vtab'+(v.key===curView?' active':'');
-    btn.textContent=v.label;
-    btn.onclick=()=>{curView=v.key;render();};
+// ── Tabs / Sections ──
+function buildTabs() {
+  const wrap = document.getElementById('view-tabs'); wrap.innerHTML = '';
+  VIEWS.forEach(v => {
+    const btn = document.createElement('button');
+    btn.className = 'vtab' + (v.key === curView ? ' active' : '');
+    btn.textContent = v.label;
+    btn.onclick = () => { curView = v.key; render(); };
     wrap.appendChild(btn);
   });
 }
 
-function buildSections(){
-  const wrap=document.getElementById('sections-wrap'); wrap.innerHTML='';
-  VIEWS.forEach(v=>{
-    const sec=document.createElement('div');
-    sec.className='view-section'+(v.key===curView?' show':'');
-    sec.id='sec-'+v.key;
-    const filtered=todos.filter(t=>v.freqTypes.includes(t.freqType));
-    if(!filtered.length){
-      const msg=document.createElement('p'); msg.className='empty-msg';
-      msg.textContent='タスクがありません。下から追加してください。';
+function buildSections() {
+  const wrap = document.getElementById('sections-wrap'); wrap.innerHTML = '';
+  VIEWS.forEach(v => {
+    const sec = document.createElement('div');
+    sec.className = 'view-section' + (v.key === curView ? ' show' : '');
+    sec.id = 'sec-' + v.key;
+    const filtered = todos.filter(t => v.freqTypes.includes(t.freqType));
+    if (!filtered.length) {
+      const msg = document.createElement('p'); msg.className = 'empty-msg';
+      msg.textContent = 'タスクがありません。下から追加してください。';
       sec.appendChild(msg);
     } else {
-      const list=document.createElement('div'); list.className='todo-list';
-      filtered.forEach(t=>list.appendChild(makeCard(t)));
+      const list = document.createElement('div'); list.className = 'todo-list';
+      filtered.forEach(t => list.appendChild(makeCard(t)));
       sec.appendChild(list);
     }
     wrap.appendChild(sec);
   });
 }
 
-function makeCard(t){
-  const wp=pct(t.weekDone,t.target);
-  const lv=lvClass(wp);
-  const isDone=t.freqType==='everyday-n'?t.todayDone>=t.target:t.todayDone>=1;
-  const card=document.createElement('div');
-  card.className='todo-card '+lv+(isDone?' done-today':'');
-  card.innerHTML=`
+function makeCard(t) {
+  const count = getCount(t);
+  const p = pct(count, t.target);
+  const lv = lvClass(p);
+  const done = isDone(t);
+  const card = document.createElement('div');
+  card.className = 'todo-card' + (lv ? ' ' + lv : '') + (done ? ' done-today' : '');
+  card.innerHTML = `
     <div class="todo-top">
       <span class="todo-name">${escHtml(t.name)}</span>
       <span class="done-check">✓</span>
@@ -674,211 +608,312 @@ function makeCard(t){
     <div class="count-row">
       <div class="cnt-btns">
         <button class="cnt-btn minus" onclick="handleMinus(${t.id})">−</button>
-        <span class="cnt-num">${t.weekDone}</span>
-        <button class="cnt-btn plus" onclick="handlePlus(${t.id})">+</button>
+        <span class="cnt-num">${count}</span>
+        <button class="cnt-btn plus" onclick="handlePlus(${t.id})" ${undoState && undoState.todoId === t.id ? 'disabled style="opacity:.25;pointer-events:none;"' : ''}>+</button>
       </div>
       <span class="cnt-target">/ 目標 ${t.target}回</span>
-      <span class="pct-pill ${pctPill(wp)}">${wp}%</span>
+      <span class="pct-pill ${pctPill(p)}">${p}%</span>
     </div>
     <div class="meter-wrap">
       <div class="meter-track"></div>
       <div class="meter-marker"></div>
     </div>
     <div class="grass-wrap">
-      <div class="grass-header">
-        <span class="grass-label">${grassLabel(t.freqType)}</span>
-      </div>
+      <div class="grass-header"><span class="grass-label">${grassLabel(t.freqType)}</span></div>
       <div class="grass-grid" id="dots-${t.id}"></div>
     </div>
   `;
-  renderMeter(wp,card.querySelector('.meter-wrap'));
-  setTimeout(()=>{
-    const g=card.querySelector(`#dots-${t.id}`);
-    if(g) renderDots(t.history,g,t.freqType,t.id);
-  },0);
+  renderMeter(p, card.querySelector('.meter-wrap'));
+  setTimeout(() => {
+    const g = card.querySelector('#dots-' + t.id);
+    if (g) renderDots(t.history, g, t.freqType, t.id);
+  }, 0);
   return card;
 }
 
-function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+// ── Render ──
+function render() {
+  const d = new Date();
+  const days = ['日', '月', '火', '水', '木', '金', '土'];
+  document.getElementById('hdr-date').textContent = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${days[d.getDay()]}）`;
 
-// ── render ──
-function render(){
-  const d=_d();
-  const days=['日','月','火','水','木','金','土'];
-  document.getElementById('hdr-date').textContent=`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）`;
+  const dp = calcDailyPct();
+  document.getElementById('daily-pct').textContent = dp + '%';
+  document.getElementById('daily-bar').style.width = Math.min(dp, 100) + '%';
+  document.getElementById('daily-bar').style.background = dp > 100 ? 'var(--ov2)' : 'var(--gr)';
 
-  const dp=calcDailyPct();
-  document.getElementById('daily-pct').textContent=dp+'%';
-  document.getElementById('daily-bar').style.width=Math.min(dp,100)+'%';
-  document.getElementById('daily-bar').style.background=dp>100?'var(--ov2)':'var(--gr)';
+  const wp = calcWeeklyPct();
+  document.getElementById('weekly-pct').textContent = wp + '%';
+  document.getElementById('weekly-bar').style.width = Math.min(wp, 100) + '%';
+  document.getElementById('weekly-bar').style.background = wp > 100 ? 'var(--ov2)' : 'var(--gr)';
 
-  const wp=calcWeeklyPct();
-  document.getElementById('weekly-pct').textContent=wp+'%';
-  document.getElementById('weekly-bar').style.width=Math.min(wp,100)+'%';
-  document.getElementById('weekly-bar').style.background=wp>100?'var(--ov2)':'var(--gr)';
+  const mp = calcMonthlyPct();
+  document.getElementById('monthly-pct').textContent = mp + '%';
+  document.getElementById('monthly-bar').style.width = Math.min(mp, 100) + '%';
+  document.getElementById('monthly-bar').style.background = mp > 100 ? 'var(--ov2)' : 'var(--gr)';
 
-  const mp=calcMonthlyPct();
-  document.getElementById('monthly-pct').textContent=mp+'%';
-  document.getElementById('monthly-bar').style.width=Math.min(mp,100)+'%';
-  document.getElementById('monthly-bar').style.background=mp>100?'var(--ov2)':'var(--gr)';
-
-  buildTabs(); buildSections();
+  buildTabs();
+  buildSections();
 }
 
 // ── + / − ──
-function handlePlus(id){
-  const t=todos.find(x=>x.id===id); if(!t)return;
-  if(t.freqType==='everyday-n'&&t.todayDone<t.target){ doAdj(t,1); return; }
-  if(t.todayDone>=1&&t.freqType!=='everyday-n'){
-    openConfirm('もう一度記録しますか？',`「${t.name}」は今日すでに記録済みです。追加で記録しますか？`,[
-      {label:'キャンセル',cls:'cancel',action:null},
-      {label:'もう1回記録',cls:'confirm',action:()=>doAdj(t,1)},
-    ]); return;
-  }
-  if(t.freqType==='everyday-n'&&t.todayDone>=t.target){
-    openConfirm('目標を超えて記録しますか？',`今日の目標（${t.target}回）に達しています。`,[
-      {label:'キャンセル',cls:'cancel',action:null},
-      {label:'もう1回記録',cls:'confirm',action:()=>doAdj(t,1)},
-    ]); return;
-  }
-  doAdj(t,1);
-}
-function handleMinus(id){
-  const t=todos.find(x=>x.id===id); if(!t||t.weekDone<=0)return;
-  openConfirm('記録を取り消しますか？',`「${t.name}」の記録を1回減らします。`,[
-    {label:'キャンセル',cls:'cancel',action:null},
-    {label:'1回減らす',cls:'warn',action:()=>doAdj(t,-1)},
-  ]);
-}
-function doAdj(t,delta){
-  t.weekDone =Math.max(0,t.weekDone+delta);
-  t.todayDone=Math.max(0,t.todayDone+delta);
-  t.monthDone=Math.max(0,(t.monthDone||0)+delta);
-  // history は過去の確定済み記録のみ — 現在進行中の今日分は含めない
-  save(); render();
+function handlePlus(id) {
+  const t = todos.find(x => x.id === id); if (!t) return;
+  const wasDone = isDone(t);
+  doAdj(t, 1);
+  if (!wasDone && isDone(t)) fireCracker();
 }
 
-// ── メニュー / 編集 ──
-function openMenu(id){
-  const t=todos.find(x=>x.id===id); if(!t)return;
-  document.getElementById('m-title').textContent=t.name;
-  document.getElementById('m-body').textContent='';
-  document.getElementById('m-content').innerHTML='';
-  const bw=document.getElementById('m-btns'); bw.innerHTML=''; bw.style.flexDirection='column';
-  [{label:'✏️  編集する',cls:'cancel',action:()=>openEdit(id)},
-   {label:'🗑️  削除する',cls:'danger',action:()=>confirmDelete(id)},
-   {label:'閉じる',cls:'cancel',action:null}
-  ].forEach(a=>{
-    const el=document.createElement('button'); el.className='modal-btn '+a.cls; el.textContent=a.label; el.style.textAlign='left';
-    el.onclick=()=>{closeModal();if(a.action)a.action();}; bw.appendChild(el);
+function fireCracker() {
+  const colors = ['#8BAF7A', '#F5C84A', '#E8960A', '#5A8A48', '#C8640A', '#D8EBC8', '#9C7E5A'];
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:300;';
+  document.body.appendChild(wrap);
+
+  ['left', 'right'].forEach((side, sideIdx) => {
+    const sideDelay = sideIdx * 180;
+    for (let i = 0; i < 22; i++) {
+      const el = document.createElement('div');
+      const size = Math.round(5 + Math.random() * 7);
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const startX = side === 'left' ? Math.random() * 50 : window.innerWidth - Math.random() * 50;
+      const tx = side === 'left' ? 40 + Math.random() * 160 : -(40 + Math.random() * 160);
+      const ty = -(140 + Math.random() * 220);
+      const dur = Math.round(700 + Math.random() * 500);
+      const delay = sideDelay + Math.round(Math.random() * 120);
+      el.style.cssText = `position:absolute;width:${size}px;height:${size}px;left:${startX}px;bottom:10px;background:${color};border-radius:${Math.random()>.4?'50%':'2px'};`;
+      wrap.appendChild(el);
+      setTimeout(() => {
+        el.style.transition = `transform ${dur}ms ease-out, opacity ${dur}ms ease-out`;
+        el.style.transform = `translate(${tx}px,${ty}px) rotate(720deg)`;
+        el.style.opacity = '0';
+      }, delay);
+    }
+  });
+
+  setTimeout(() => wrap.remove(), 1900);
+}
+
+function handleMinus(id) {
+  const t = todos.find(x => x.id === id);
+  if (!t || getCount(t) <= 0) return;
+
+  // undoState をセットしてから doAdj → render() 時点で + が無効化される
+  if (undoState) {
+    clearTimeout(undoState.timerId);
+    cancelAnimationFrame(undoState.rafId);
+    if (undoState.todoId === id) {
+      undoState.totalDelta--;
+    } else {
+      undoState = { todoId: id, totalDelta: -1 };
+    }
+  } else {
+    undoState = { todoId: id, totalDelta: -1 };
+  }
+  undoState.startTime = Date.now();
+  undoState.timerId = setTimeout(commitUndo, UNDO_MS);
+
+  doAdj(t, -1);
+  refreshUndoToast(t);
+}
+
+function commitUndo() {
+  if (!undoState) return;
+  cancelAnimationFrame(undoState.rafId);
+  undoState = null;
+  document.getElementById('undo-toast').classList.remove('show');
+  render();
+}
+
+function undoTick() {
+  if (!undoState) return;
+  const elapsed = Date.now() - undoState.startTime;
+  const remaining = Math.max(0, UNDO_MS - elapsed);
+  const pct = remaining / UNDO_MS * 100;
+  const bar = document.getElementById('undo-bar');
+  bar.style.width = pct + '%';
+  bar.style.background = pct > 62.5 ? 'var(--gr)' : pct > 37.5 ? 'var(--ov1)' : 'var(--ov2)';
+  if (remaining > 0) undoState.rafId = requestAnimationFrame(undoTick);
+}
+
+function refreshUndoToast(t) {
+  const count = -undoState.totalDelta;
+  const btn = document.getElementById('undo-btn');
+  btn.textContent = `↺  「${t.name}」を${count}回戻す`;
+  btn.onclick = () => {
+    clearTimeout(undoState.timerId);
+    cancelAnimationFrame(undoState.rafId);
+    const task = todos.find(x => x.id === undoState.todoId);
+    const delta = -undoState.totalDelta;
+    undoState = null;
+    document.getElementById('undo-toast').classList.remove('show');
+    if (task) doAdj(task, delta);
+  };
+  document.getElementById('undo-close').onclick = () => {
+    clearTimeout(undoState.timerId);
+    cancelAnimationFrame(undoState.rafId);
+    undoState = null;
+    document.getElementById('undo-toast').classList.remove('show');
+    render();
+  };
+  document.getElementById('undo-toast').classList.add('show');
+  cancelAnimationFrame(undoState.rafId);
+  undoState.rafId = requestAnimationFrame(undoTick);
+}
+
+function doAdj(t, delta) {
+  if (t.freqType === 'every' || t.freqType === 'everyday-n') {
+    t.todayDone  = Math.max(0, t.todayDone  + delta);
+    t.weekDone   = Math.max(0, t.weekDone   + delta);
+    t.monthDone  = Math.max(0, t.monthDone  + delta);
+  } else if (t.freqType === 'week') {
+    t.weekDone   = Math.max(0, t.weekDone   + delta);
+    t.monthDone  = Math.max(0, t.monthDone  + delta);
+  } else {
+    t.monthDone  = Math.max(0, t.monthDone  + delta);
+  }
+  save();
+  render();
+}
+
+// ── Menu / Edit ──
+function openMenu(id) {
+  const t = todos.find(x => x.id === id); if (!t) return;
+  document.getElementById('m-title').textContent = t.name;
+  document.getElementById('m-body').textContent = '';
+  document.getElementById('m-content').innerHTML = '';
+  const bw = document.getElementById('m-btns'); bw.innerHTML = ''; bw.style.flexDirection = 'column';
+  [{ label: '✏️  編集する', cls: 'cancel', action: () => openEdit(id) },
+   { label: '🗑️  削除する', cls: 'danger', action: () => confirmDelete(id) },
+   { label: '閉じる', cls: 'cancel', action: null }
+  ].forEach(a => {
+    const el = document.createElement('button'); el.className = 'modal-btn ' + a.cls; el.textContent = a.label; el.style.textAlign = 'left';
+    el.onclick = () => { closeModal(); if (a.action) a.action(); };
+    bw.appendChild(el);
   });
   openModalEl();
 }
-function openEdit(id){
-  const t=todos.find(x=>x.id===id); if(!t)return;
-  document.getElementById('m-title').textContent='タスクを編集';
-  document.getElementById('m-body').textContent='';
-  const ct=document.getElementById('m-content');
-  ct.innerHTML=`
+
+function openEdit(id) {
+  const t = todos.find(x => x.id === id); if (!t) return;
+  document.getElementById('m-title').textContent = 'タスクを編集';
+  document.getElementById('m-body').textContent = '';
+  const ct = document.getElementById('m-content');
+  ct.innerHTML = `
     <div class="field"><label>タスク名</label><input type="text" id="e-name" value="${escHtml(t.name)}"/></div>
     <div class="field"><label>頻度</label>
       <div class="freq-grid" id="e-fq" style="margin-bottom:0">
-        <button class="fq-btn${t.freqType==='every'?' sel':''}"      data-freq="every"      onclick="eSelFreq(this)">毎日</button>
-        <button class="fq-btn${t.freqType==='everyday-n'?' sel':''}" data-freq="everyday-n" onclick="eSelFreq(this)">毎日N回</button>
-        <button class="fq-btn${t.freqType==='week'?' sel':''}"       data-freq="week"        onclick="eSelFreq(this)">週N回</button>
-        <button class="fq-btn${t.freqType==='month'?' sel':''}"      data-freq="month"       onclick="eSelFreq(this)">月N回</button>
+        <button class="fq-btn${t.freqType === 'every'      ? ' sel' : ''}" data-freq="every"      onclick="eSelFreq(this)">毎日</button>
+        <button class="fq-btn${t.freqType === 'everyday-n' ? ' sel' : ''}" data-freq="everyday-n" onclick="eSelFreq(this)">毎日N回</button>
+        <button class="fq-btn${t.freqType === 'week'       ? ' sel' : ''}" data-freq="week"       onclick="eSelFreq(this)">週N回</button>
+        <button class="fq-btn${t.freqType === 'month'      ? ' sel' : ''}" data-freq="month"      onclick="eSelFreq(this)">月N回</button>
       </div>
-      <div class="n-field${['everyday-n','week','month'].includes(t.freqType)?' show':''}" id="e-nf">
-        <span>回数：</span><input class="ni" id="e-nv" type="number" min="1" max="99" value="${t.n||2}"/>
-        <span id="e-nu">${t.freqType==='everyday-n'?'回/日':t.freqType==='month'?'回/月':'回/週'}</span>
+      <div class="n-field${['everyday-n','week','month'].includes(t.freqType) ? ' show' : ''}" id="e-nf">
+        <span>回数：</span><input class="ni" id="e-nv" type="number" min="1" max="99" value="${t.n || 2}"/>
+        <span id="e-nu">${t.freqType === 'everyday-n' ? '回/日' : t.freqType === 'month' ? '回/月' : '回/週'}</span>
       </div>
     </div>`;
-  const bw=document.getElementById('m-btns'); bw.innerHTML=''; bw.style.flexDirection='row';
-  [{label:'キャンセル',cls:'cancel',action:null},{label:'保存',cls:'confirm',action:()=>saveEdit(id)}].forEach(b=>{
-    const el=document.createElement('button'); el.className='modal-btn '+b.cls; el.textContent=b.label;
-    el.onclick=()=>{closeModal();if(b.action)b.action();}; bw.appendChild(el);
+  const bw = document.getElementById('m-btns'); bw.innerHTML = ''; bw.style.flexDirection = 'row';
+  [{ label: 'キャンセル', cls: 'cancel', action: null }, { label: '保存', cls: 'confirm', action: () => saveEdit(id) }].forEach(b => {
+    const el = document.createElement('button'); el.className = 'modal-btn ' + b.cls; el.textContent = b.label;
+    el.onclick = () => { closeModal(); if (b.action) b.action(); };
+    bw.appendChild(el);
   });
   openModalEl();
 }
-function eSelFreq(btn){
-  document.querySelectorAll('#e-fq .fq-btn').forEach(b=>b.classList.remove('sel'));
-  btn.classList.add('sel'); const f=btn.dataset.freq;
-  const nf=document.getElementById('e-nf'); nf.className='n-field'+(['everyday-n','week','month'].includes(f)?' show':'');
-  const nu=document.getElementById('e-nu'); if(nu)nu.textContent=f==='everyday-n'?'回/日':f==='month'?'回/月':'回/週';
+
+function eSelFreq(btn) {
+  document.querySelectorAll('#e-fq .fq-btn').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+  const f = btn.dataset.freq;
+  document.getElementById('e-nf').className = 'n-field' + (['everyday-n','week','month'].includes(f) ? ' show' : '');
+  const nu = document.getElementById('e-nu');
+  if (nu) nu.textContent = f === 'everyday-n' ? '回/日' : f === 'month' ? '回/月' : '回/週';
 }
-function saveEdit(id){
-  const t=todos.find(x=>x.id===id); if(!t)return;
-  const name=document.getElementById('e-name').value.trim(); if(!name)return;
-  const fb=document.querySelector('#e-fq .fq-btn.sel');
-  const ft=fb?fb.dataset.freq:t.freqType;
-  const n=parseInt(document.getElementById('e-nv')?.value)||2;
-  t.name=name; t.freqType=ft; t.n=n;
-  if(ft==='every'){t.target=1;t.freqLabel='毎日';}
-  else if(ft==='everyday-n'){t.target=n;t.freqLabel=`毎日${n}回`;}
-  else if(ft==='week'){t.target=n;t.freqLabel=`週${n}回`;}
-  else if(ft==='month'){t.target=n;t.freqLabel=`月${n}回`;}
-  const nl=spanFor(ft);
-  if((t.history||[]).length!==nl) t.history=new Array(nl).fill(0);
-  curView=ft==='every'||ft==='everyday-n'?'day':ft==='week'?'week':'month';
+
+function saveEdit(id) {
+  const t = todos.find(x => x.id === id); if (!t) return;
+  const name = document.getElementById('e-name').value.trim(); if (!name) return;
+  const fb = document.querySelector('#e-fq .fq-btn.sel');
+  const ft = fb ? fb.dataset.freq : t.freqType;
+  const n = parseInt(document.getElementById('e-nv')?.value) || 2;
+  t.name = name; t.freqType = ft; t.n = n;
+  if (ft === 'every')           { t.target = 1; t.freqLabel = '毎日'; }
+  else if (ft === 'everyday-n') { t.target = n; t.freqLabel = `毎日${n}回`; }
+  else if (ft === 'week')       { t.target = n; t.freqLabel = `週${n}回`; }
+  else                          { t.target = n; t.freqLabel = `月${n}回`; }
+  if ((t.history || []).length !== spanFor(ft)) t.history = new Array(spanFor(ft)).fill(0);
+  curView = ft === 'every' || ft === 'everyday-n' ? 'day' : ft === 'week' ? 'week' : 'month';
   save(); render();
 }
-function confirmDelete(id){
-  openConfirm('このタスクを削除しますか？','削除すると記録もすべて消えます。',[
-    {label:'キャンセル',cls:'cancel',action:null},
-    {label:'削除する',cls:'danger',action:()=>{todos=todos.filter(x=>x.id!==id);save();render();}},
+
+function confirmDelete(id) {
+  openConfirm('このタスクを削除しますか？', '削除すると記録もすべて消えます。', [
+    { label: 'キャンセル', cls: 'cancel', action: null },
+    { label: '削除する', cls: 'danger', action: () => { todos = todos.filter(x => x.id !== id); save(); render(); } },
   ]);
 }
-function openConfirm(title,body,btns){
-  document.getElementById('m-title').textContent=title;
-  document.getElementById('m-body').textContent=body;
-  document.getElementById('m-content').innerHTML='';
-  const bw=document.getElementById('m-btns'); bw.innerHTML=''; bw.style.flexDirection='row';
-  btns.forEach(b=>{
-    const el=document.createElement('button'); el.className='modal-btn '+b.cls; el.textContent=b.label;
-    el.onclick=()=>{closeModal();if(b.action)b.action();}; bw.appendChild(el);
+
+function openConfirm(title, body, btns) {
+  document.getElementById('m-title').textContent = title;
+  document.getElementById('m-body').textContent = body;
+  document.getElementById('m-content').innerHTML = '';
+  const bw = document.getElementById('m-btns'); bw.innerHTML = ''; bw.style.flexDirection = 'row';
+  btns.forEach(b => {
+    const el = document.createElement('button'); el.className = 'modal-btn ' + b.cls; el.textContent = b.label;
+    el.onclick = () => { closeModal(); if (b.action) b.action(); };
+    bw.appendChild(el);
   });
   openModalEl();
 }
-function openModalEl(){ document.getElementById('modal-bg').classList.add('open'); }
-function bgClose(e){ if(e.target===document.getElementById('modal-bg'))closeModal(); }
-function closeModal(){ document.getElementById('modal-bg').classList.remove('open'); document.getElementById('m-btns').style.flexDirection='row'; }
 
-// ── タスク追加 ──
-function selAddFreq(btn){
-  document.querySelectorAll('#add-fq .fq-btn').forEach(b=>b.classList.remove('sel'));
-  btn.classList.add('sel'); addFreq=btn.dataset.freq;
-  const nf=document.getElementById('add-nf'); nf.className='n-field'+(['everyday-n','week','month'].includes(addFreq)?' show':'');
-  const nu=document.getElementById('add-nu'); if(nu)nu.textContent=addFreq==='everyday-n'?'回/日':addFreq==='month'?'回/月':'回/週';
+function openModalEl() { document.getElementById('modal-bg').classList.add('open'); }
+function bgClose(e) { if (e.target === document.getElementById('modal-bg')) closeModal(); }
+function closeModal() {
+  document.getElementById('modal-bg').classList.remove('open');
+  document.getElementById('m-btns').style.flexDirection = 'row';
 }
-function addTodo(){
-  const nameEl=document.getElementById('new-name'); const name=nameEl.value.trim(); if(!name)return;
-  const n=parseInt(document.getElementById('add-nv').value)||2;
-  let target,label;
-  if(addFreq==='every'){target=1;label='毎日';}
-  else if(addFreq==='everyday-n'){target=n;label=`毎日${n}回`;}
-  else if(addFreq==='week'){target=n;label=`週${n}回`;}
-  else if(addFreq==='month'){target=n;label=`月${n}回`;}
-  const tk=todayKey(),wk=weekKey(),mk=monthKey();
-  todos.push({id:Date.now(),name,freqType:addFreq,freqLabel:label,target,n,
-    weekDone:0,todayDone:0,monthDone:0,
-    history:new Array(spanFor(addFreq)).fill(0),
-    lastReset:addFreq==='month'?mk:addFreq==='week'?wk:tk,
-    lastWeekReset:wk,lastMonthReset:mk
+
+// ── Add task ──
+function selAddFreq(btn) {
+  document.querySelectorAll('#add-fq .fq-btn').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel'); addFreq = btn.dataset.freq;
+  document.getElementById('add-nf').className = 'n-field' + (['everyday-n','week','month'].includes(addFreq) ? ' show' : '');
+  const nu = document.getElementById('add-nu');
+  if (nu) nu.textContent = addFreq === 'everyday-n' ? '回/日' : addFreq === 'month' ? '回/月' : '回/週';
+}
+
+function addTodo() {
+  const nameEl = document.getElementById('new-name');
+  const name = nameEl.value.trim(); if (!name) return;
+  const n = parseInt(document.getElementById('add-nv').value) || 2;
+  let target, label;
+  if (addFreq === 'every')           { target = 1; label = '毎日'; }
+  else if (addFreq === 'everyday-n') { target = n; label = `毎日${n}回`; }
+  else if (addFreq === 'week')       { target = n; label = `週${n}回`; }
+  else                               { target = n; label = `月${n}回`; }
+  const dk = todayKey(), wk = weekKey(), mk = monthKey();
+  todos.push({
+    id: Date.now(), name, freqType: addFreq, freqLabel: label, target, n,
+    todayDone: 0, weekDone: 0, monthDone: 0,
+    history: new Array(spanFor(addFreq)).fill(0),
+    lastDayKey: dk, lastWeekKey: wk, lastMonthKey: mk,
   });
-  nameEl.value=''; nameEl.blur();
-  curView=addFreq==='every'||addFreq==='everyday-n'?'day':addFreq==='week'?'week':'month';
+  nameEl.value = ''; nameEl.blur();
+  curView = addFreq === 'every' || addFreq === 'everyday-n' ? 'day' : addFreq === 'week' ? 'week' : 'month';
   save(); render();
 }
 
-document.getElementById('new-name').addEventListener('keydown',e=>{ if(e.key==='Enter')addTodo(); });
+document.getElementById('new-name').addEventListener('keydown', e => { if (e.key === 'Enter') addTodo(); });
 
-function checkInstallBanner(){
-  const isIos=/iphone|ipad|ipod/i.test(navigator.userAgent);
-  if(isIos&&!window.navigator.standalone) document.getElementById('install-banner').classList.add('show');
+function checkInstallBanner() {
+  if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !window.navigator.standalone) {
+    document.getElementById('install-banner').classList.add('show');
+  }
 }
 
-if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
 }
 
 load();
@@ -886,8 +921,8 @@ checkResets();
 checkInstallBanner();
 render();
 
-// 1分ごとに確認（午前5時のリセットを検知）
-setInterval(()=>{ checkResets(); render(); }, 60000);
+// Check for day/week/month rollover every minute
+setInterval(() => { checkResets(); render(); }, 60000);
 </script>
 </body>
 </html>
