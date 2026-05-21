@@ -24,9 +24,11 @@ html,body{height:100%;background:var(--iv);}
 body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif;color:var(--tx);-webkit-font-smoothing:antialiased;overscroll-behavior:none;}
 .app{max-width:480px;margin:0 auto;min-height:100dvh;background:var(--iv);padding:calc(var(--safe-top) + 1.25rem) 1.25rem calc(var(--safe-bottom) + 5rem);}
 
-.hdr{margin-bottom:1.25rem;}
+.hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;}
 .hdr h1{font-size:22px;font-weight:600;color:var(--tx);letter-spacing:.02em;}
 .hdr-date{font-size:12px;color:var(--tx-s);margin-top:2px;}
+.hdr-settings-btn{background:none;border:none;font-size:20px;color:var(--tx-s);cursor:pointer;padding:6px;border-radius:8px;line-height:1;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
+.hdr-settings-btn:active{background:var(--br-l);}
 
 .stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:1.25rem;}
 .stat-card{background:#fff;border:.5px solid var(--bd);border-radius:var(--radius-lg);padding:11px 12px;}
@@ -165,8 +167,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku
 <body>
 <div class="app">
   <div class="hdr">
-    <h1>Looply - TODO List -</h1>
-    <div class="hdr-date" id="hdr-date"></div>
+    <div>
+      <h1>Looply - TODO List -</h1>
+      <div class="hdr-date" id="hdr-date"></div>
+    </div>
+    <button class="hdr-settings-btn" onclick="openSettings()">⚙</button>
   </div>
   <div class="install-banner" id="install-banner">
     📲 <strong>ホーム画面に追加</strong>すると、アプリとして使えます。<br>
@@ -777,6 +782,61 @@ function doAdj(t, delta) {
 }
 
 // ── Menu / Edit ──
+// ── バックアップ・復元 ──
+function openSettings() {
+  document.getElementById('m-title').textContent = 'バックアップ・復元';
+  document.getElementById('m-body').textContent = 'データをJSONファイルとして保存・読み込みできます。';
+  document.getElementById('m-content').innerHTML = '';
+  const bw = document.getElementById('m-btns'); bw.innerHTML = ''; bw.style.flexDirection = 'column';
+  [
+    { label: '📥  バックアップ（エクスポート）', action: exportData },
+    { label: '📤  復元（インポート）',           action: importData },
+    { label: '閉じる',                           action: null },
+  ].forEach(b => {
+    const el = document.createElement('button'); el.className = 'modal-btn cancel'; el.textContent = b.label; el.style.textAlign = 'left';
+    el.onclick = () => { closeModal(); if (b.action) b.action(); };
+    bw.appendChild(el);
+  });
+  openModalEl();
+}
+
+function exportData() {
+  const json = JSON.stringify(todos, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = `looply-${todayKey()}.json`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importData() {
+  const input = document.createElement('input'); input.type = 'file'; input.accept = '.json,application/json';
+  input.onchange = e => {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!Array.isArray(data) || !data.length) throw new Error();
+        openConfirm(
+          'データを復元しますか？',
+          `${data.length}件のタスクを読み込みます。現在のデータは上書きされます。`,
+          [
+            { label: 'キャンセル', cls: 'cancel', action: null },
+            { label: '復元する',   cls: 'confirm', action: () => { todos = data; ensureKeys(); save(); render(); } },
+          ]
+        );
+      } catch {
+        openConfirm('読み込みエラー', '有効なLooplyのバックアップファイルではありません。', [
+          { label: '閉じる', cls: 'cancel', action: null },
+        ]);
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
 function openMenu(id) {
   const t = todos.find(x => x.id === id); if (!t) return;
   document.getElementById('m-title').textContent = t.name;
