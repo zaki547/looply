@@ -21,7 +21,7 @@
   --safe-bottom:env(safe-area-inset-bottom,0px);
 }
 html,body{height:100%;background:var(--iv);}
-body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif;color:var(--tx);-webkit-font-smoothing:antialiased;overscroll-behavior:none;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif;color:var(--tx);-webkit-font-smoothing:antialiased;overscroll-behavior:none;touch-action:manipulation;}
 .app{max-width:480px;margin:0 auto;min-height:100dvh;background:var(--iv);padding:calc(var(--safe-top) + 1.25rem) 1.25rem calc(var(--safe-bottom) + 5rem);}
 
 .hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;}
@@ -81,8 +81,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku
 
 .meter-wrap{position:relative;height:12px;margin-bottom:10px;}
 .meter-track{height:8px;background:var(--br-l);border-radius:4px;overflow:hidden;position:absolute;top:2px;left:0;right:0;}
-.m-layer-a{position:absolute;top:0;left:0;height:100%;border-radius:4px;}
-.m-layer-b{position:absolute;top:0;left:0;height:100%;border-radius:4px;transition:width .4s;}
+.m-layer-a{position:absolute;top:0;left:0;height:100%;border-radius:4px;transition:width .35s cubic-bezier(.4,0,.2,1);}
+.m-layer-b{position:absolute;top:0;left:0;height:100%;border-radius:4px;transition:width .35s cubic-bezier(.4,0,.2,1);}
 .meter-marker{position:absolute;top:-1px;width:2px;background:var(--tx-s);height:10px;border-radius:1px;left:calc(100% - 1px);}
 
 .grass-wrap{padding-top:10px;border-top:.5px solid var(--bd);}
@@ -202,12 +202,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku
       <button class="add-btn" onclick="addTodo()">追加</button>
     </div>
     <div class="freq-grid" id="add-fq">
-      <button class="fq-btn sel" data-freq="every"      onclick="selAddFreq(this)">毎日</button>
-      <button class="fq-btn"     data-freq="everyday-n" onclick="selAddFreq(this)">毎日N回</button>
+      <button class="fq-btn sel" data-freq="everyday-n" onclick="selAddFreq(this)">毎日N回</button>
       <button class="fq-btn"     data-freq="week"       onclick="selAddFreq(this)">週N回</button>
       <button class="fq-btn"     data-freq="month"      onclick="selAddFreq(this)">月N回</button>
     </div>
-    <div class="n-field" id="add-nf">
+    <div class="n-field show" id="add-nf">
       <span>回数：</span>
       <input class="ni" id="add-nv" type="number" min="1" max="99" value="3"/>
       <span id="add-nu">回/日</span>
@@ -238,9 +237,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku
 const SK = 'looply_v2';
 const SK_META = 'looply_meta_v2';
 let todos = [];
-let addFreq = 'every';
+let addFreq = 'everyday-n';
 let curView = 'day';
 let undoState = null;
+let resetHr = 0;
 const UNDO_MS = 4000;
 
 const VIEWS = [
@@ -256,12 +256,14 @@ function grassLabel(ft) { return ft === 'month' ? '過去6ヶ月' : ft === 'week
 function dotColor(v) { return ['#E8E2D8', '#B8D9A8', '#8BAF7A', '#2A6020'][v] || '#E8E2D8'; }
 
 // ── Date utils ──
+const DAY_JP = ['日', '月', '火', '水', '木', '金', '土'];
+function effectiveNow() { return new Date(Date.now() - resetHr * 3600000); }
 function todayKey() {
-  const d = new Date();
+  const d = effectiveNow();
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 function weekKey() {
-  const d = new Date();
+  const d = effectiveNow();
   const dow = d.getDay() === 0 ? 7 : d.getDay();
   const mon = new Date(d); mon.setDate(d.getDate() - (dow - 1));
   const jan4 = new Date(mon.getFullYear(), 0, 4);
@@ -270,8 +272,25 @@ function weekKey() {
   return mon.getFullYear() + '-W' + String(wn).padStart(2, '0');
 }
 function monthKey() {
-  const d = new Date();
+  const d = effectiveNow();
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+function dotDateLabel(ago, ft) {
+  const eff = effectiveNow();
+  if (ft === 'every' || ft === 'everyday-n') {
+    const d = new Date(eff); d.setDate(d.getDate() - ago);
+    return String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0') + '（' + DAY_JP[d.getDay()] + '）';
+  }
+  if (ft === 'week') {
+    const dow = eff.getDay() === 0 ? 7 : eff.getDay();
+    const mon = new Date(eff); mon.setDate(eff.getDate() - (dow - 1)); mon.setHours(0, 0, 0, 0);
+    const tmon = new Date(mon); tmon.setDate(mon.getDate() - ago * 7);
+    const tsun = new Date(tmon); tsun.setDate(tmon.getDate() + 6);
+    return String(tmon.getMonth() + 1).padStart(2, '0') + '/' + String(tmon.getDate()).padStart(2, '0') + '(月)〜' +
+           String(tsun.getMonth() + 1).padStart(2, '0') + '/' + String(tsun.getDate()).padStart(2, '0') + '（日）';
+  }
+  const d = new Date(eff.getFullYear(), eff.getMonth() - ago, 1);
+  return (d.getMonth() + 1) + '月';
 }
 
 // ── Load / Save ──
@@ -286,6 +305,7 @@ function saveMeta(m) {
 }
 
 function load() {
+  resetHr = loadMeta().resetHour || 0;
   try {
     const raw = localStorage.getItem(SK);
     if (raw) {
@@ -480,20 +500,41 @@ function calcMonthlyPct() {
 }
 
 // ── Meter ──
+const meterAnimFrom = {};
 function meterColors(lap) {
   const c = ['#8BAF7A', '#F5C84A', '#E8960A', '#C8640A'];
   const last = c.length - 1;
   return { a: c[Math.min(Math.max(0, lap - 1), last)], b: c[Math.min(lap, last)] };
 }
-function renderMeter(p, wrap) {
+function renderMeter(p, wrap, todoId) {
   const lap = Math.floor(p / 100), rem = p % 100, c = meterColors(lap);
+  const prev = meterAnimFrom[todoId];
+  const prevLap = prev !== undefined ? Math.floor(prev / 100) : lap;
+  const prevRem = prev !== undefined ? prev % 100 : rem;
+  meterAnimFrom[todoId] = p;
   const tr = wrap.querySelector('.meter-track'); tr.innerHTML = '';
+
   if (lap > 0) {
     const a = document.createElement('div'); a.className = 'm-layer-a';
-    a.style.cssText = `width:100%;background:${c.a};`; tr.appendChild(a);
+    if (prev !== undefined && prevLap < lap) {
+      // ラップを上抜け: layer-a を prevRem% から 100% へアニメーション
+      const aFrom = prevLap === lap - 1 ? prevRem : 0;
+      a.style.cssText = `width:${aFrom}%;background:${c.a};`; tr.appendChild(a);
+      requestAnimationFrame(() => requestAnimationFrame(() => { a.style.width = '100%'; }));
+    } else {
+      a.style.cssText = `width:100%;background:${c.a};`; tr.appendChild(a);
+    }
+  } else if (prev !== undefined && prevLap === 1 && lap === 0) {
+    // ラップを下抜け (100%→0-99%): 一時 layer-a を 100% から 0% へ縮小
+    const a = document.createElement('div'); a.className = 'm-layer-a';
+    a.style.cssText = `width:100%;background:${meterColors(1).a};`; tr.appendChild(a);
+    requestAnimationFrame(() => requestAnimationFrame(() => { a.style.width = '0%'; }));
   }
+
+  const fromRem = prevLap === lap ? prevRem : rem;
   const b = document.createElement('div'); b.className = 'm-layer-b';
-  b.style.cssText = `width:${rem}%;background:${c.b};`; tr.appendChild(b);
+  b.style.cssText = `width:${fromRem}%;background:${c.b};`; tr.appendChild(b);
+  requestAnimationFrame(() => requestAnimationFrame(() => { b.style.width = rem + '%'; }));
 }
 
 // ── Dots ──
@@ -522,7 +563,7 @@ function openDotEdit(todoId, histIdx, ago, ft) {
   function vToCount(v) { return v === 0 ? 0 : v === 1 ? Math.max(1, t.target - 1) : v === 2 ? t.target : Math.round(t.target * 1.3); }
   function countToV(c) { const p2 = t.target ? Math.round(c / t.target * 100) : 0; return p2 < 80 ? 0 : p2 < 100 ? 1 : p2 < 120 ? 2 : 3; }
   let editCount = vToCount(t.history[histIdx]);
-  const agoLabel = ft === 'month' ? `${ago}ヶ月前` : ft === 'week' ? `${ago}週前` : `${ago}日前`;
+  const agoLabel = dotDateLabel(ago, ft);
 
   document.getElementById('m-title').textContent = `${agoLabel}の記録を編集`;
   document.getElementById('m-body').textContent = t.name;
@@ -628,11 +669,8 @@ function makeCard(t) {
       <div class="grass-grid" id="dots-${t.id}"></div>
     </div>
   `;
-  renderMeter(p, card.querySelector('.meter-wrap'));
-  setTimeout(() => {
-    const g = card.querySelector('#dots-' + t.id);
-    if (g) renderDots(t.history, g, t.freqType, t.id);
-  }, 0);
+  renderMeter(p, card.querySelector('.meter-wrap'), t.id);
+  renderDots(t.history, card.querySelector('#dots-' + t.id), t.freqType, t.id);
   return card;
 }
 
@@ -659,6 +697,13 @@ function render() {
 
   buildTabs();
   buildSections();
+
+  const viewFreqMap = { day: 'everyday-n', week: 'week', month: 'month' };
+  addFreq = viewFreqMap[curView] || 'everyday-n';
+  document.querySelectorAll('#add-fq .fq-btn').forEach(b => b.classList.toggle('sel', b.dataset.freq === addFreq));
+  const nuEl = document.getElementById('add-nu');
+  if (nuEl) nuEl.textContent = addFreq === 'everyday-n' ? '回/日' : addFreq === 'month' ? '回/月' : '回/週';
+  document.getElementById('add-nf').className = 'n-field show';
 }
 
 // ── + / − ──
@@ -784,9 +829,17 @@ function doAdj(t, delta) {
 // ── Menu / Edit ──
 // ── バックアップ・復元 ──
 function openSettings() {
-  document.getElementById('m-title').textContent = 'バックアップ・復元';
-  document.getElementById('m-body').textContent = 'データをJSONファイルとして保存・読み込みできます。';
-  document.getElementById('m-content').innerHTML = '';
+  document.getElementById('m-title').textContent = '設定';
+  document.getElementById('m-body').textContent = '';
+  const ct = document.getElementById('m-content');
+  const hrs = [21, 22, 23, 0, 1, 2, 3, 4, 5, 6];
+  ct.innerHTML = '<div class="field"><label>日付リセット時刻</label>' +
+    '<select id="s-rh" style="width:100%;border:.5px solid var(--bd);border-radius:var(--radius-md);padding:10px 12px;font-size:15px;color:var(--tx);background:var(--iv);outline:none;font-family:inherit;-webkit-appearance:none;">' +
+    hrs.map(h => `<option value="${h}"${h === resetHr ? ' selected' : ''}>${h}:00</option>`).join('') +
+    '</select><div style="font-size:12px;color:var(--tx-s);margin-top:5px;">この時刻に日次タスクがリセットされます</div></div>';
+  document.getElementById('s-rh').onchange = function() {
+    const h = parseInt(this.value); const meta = loadMeta(); meta.resetHour = h; saveMeta(meta); resetHr = h;
+  };
   const bw = document.getElementById('m-btns'); bw.innerHTML = ''; bw.style.flexDirection = 'column';
   [
     { label: '📥  バックアップ（エクスポート）', action: exportData },
@@ -965,6 +1018,22 @@ function addTodo() {
 }
 
 document.getElementById('new-name').addEventListener('keydown', e => { if (e.key === 'Enter') addTodo(); });
+
+// ── Swipe tabs ──
+let swipeX = 0, swipeY = 0;
+document.addEventListener('touchstart', e => {
+  swipeX = e.touches[0].clientX;
+  swipeY = e.touches[0].clientY;
+}, { passive: true });
+document.addEventListener('touchend', e => {
+  if (document.getElementById('modal-bg').classList.contains('open')) return;
+  const dx = e.changedTouches[0].clientX - swipeX;
+  const dy = e.changedTouches[0].clientY - swipeY;
+  if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
+  const idx = VIEWS.findIndex(v => v.key === curView);
+  const next = dx < 0 ? idx + 1 : idx - 1;
+  if (next >= 0 && next < VIEWS.length) { curView = VIEWS[next].key; render(); }
+}, { passive: true });
 
 function checkInstallBanner() {
   if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !window.navigator.standalone) {
